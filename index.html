@@ -111,10 +111,10 @@ $("cinfo").onclick=async e=>{const i=e.target.id;
  if(i==="bnew"){const n=prompt(tr("Назва корпоративного календаря"),"Команда");if(n&&n.trim())await setDoc(doc(db,"calendars",crypto.randomUUID()),{name:n.trim(),owner:auth.currentUser.uid,members:[auth.currentUser.uid]})}
  if(i==="bmgr"){renderM();$("mdlg").showModal()}
  if(i==="binv"){const l=location.origin+location.pathname+"?join="+cid;try{await navigator.clipboard.writeText(l);alert(tr("Посилання скопійовано")+":\n"+l)}catch(x){prompt(tr("Скопіюйте посилання"),l)}}};
-function renderM(){const me=auth.currentUser.uid,isO=me===owner;
+function renderM(){const me=auth.currentUser.uid,isO=true;
  $("mbody").innerHTML=`<label>Назва календаря</label><div class="row"><input id="mname" value="${esc(cname)}" ${isO?"":"disabled"} style="flex:1">${isO?'<button type="button" id="mren" class="pri">Зберегти назву</button>':""}</div>
- <label>${tr("Учасники")} (${members.length})</label>`+members.map(m=>`<div class="row" style="align-items:center;border-top:1px solid var(--bd);padding:6px 0"><span style="flex:1">${esc(names[m]||tr("(без імені)"))}${m===owner?" 👑":""}${m===me?" ("+tr("ви")+")":""}</span>${isO&&m!==owner?`<button type="button" data-rm="${m}">Вилучити</button>`:""}</div>`).join("")
- +(isO?"":'<div class="row"><button type="button" id="mleave">Вийти з календаря</button></div>');applyLang()}
+ <label>${tr("Учасники")} (${members.length})</label>`+members.map(m=>`<div class="row" style="align-items:center;border-top:1px solid var(--bd);padding:6px 0"><span style="flex:1">${esc(names[m]||tr("(без імені)"))}${m===owner?" 👑":""}${m===me?" ("+tr("ви")+")":""}</span>${m!==me?`<button type="button" data-rm="${m}">Вилучити</button>`:""}</div>`).join("")
+ +'<div class="row"><button type="button" id="mleave">Вийти з календаря</button></div>';applyLang()}
 $("mbody").onclick=async e=>{const i=e.target.id,rm=e.target.dataset.rm,r=doc(db,"calendars",cid);
  try{if(i==="mren"){const n=$("mname").value.trim();if(n)await updateDoc(r,{name:n})}
   if(rm&&confirm(tr("Вилучити користувача з календаря?")))await updateDoc(r,{members:arrayRemove(rm),["names."+rm]:deleteField()});
