@@ -65,6 +65,7 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
 </form></dialog>
 <dialog id="sdlg"><form method="dialog"><label>Тема</label><select id="sTh"><option value="light">Світла<option value="dark">Темна<option value="green">Зелена</select>
  <label>Мова</label><select id="sLg"><option value="uk">Українська<option value="en">English</select><div class="row"><button class="pri">Закрити</button></div></form></dialog>
+<dialog id="mdlg"><form method="dialog"><h3 style="margin-top:0">🏢 Керування календарем</h3><div id="mbody"></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <div id="alarm" hidden><div class="box"><h3 style="margin:0">⏰ Час виконати задачу</h3><div id="ai"></div>
 <div class="err" style="color:#8a949c;margin-top:8px">Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).</div></div></div>
 
@@ -72,12 +73,12 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,query,where,updateDoc,arrayUnion} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import {getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,query,where,updateDoc,arrayUnion,arrayRemove,deleteField} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 document.querySelectorAll(".lg").forEach(i=>i.src=LOGO_DATA);document.querySelector("link[rel=icon]").href=LOGO_DATA;
 const pref=(k,v)=>{try{if(v!==undefined)localStorage.setItem(k,v);return localStorage.getItem(k)}catch(e){return null}};
 const LANG=pref("lang")||"uk";document.documentElement.dataset.theme=pref("theme")||"light";document.documentElement.lang=LANG;
-const EN={"Календар планування": "Planning Calendar", "Вийти": "Log out", "Увійти": "Log in", "Створити акаунт": "Create account", "Пароль (від 6 символів)": "Password (min 6 chars)", "Особистий календар": "Personal calendar", "Корпоративний календар": "Corporate calendar", "Сьогодні": "Today", "+ Додати задачу": "+ Add task", "Назва *": "Title *", "Дата": "Date", "Час нагадування (необов’язково)": "Reminder time (optional)", "Повтор": "Repeat", "Без повтору": "No repeat", "Кожен день": "Every day", "Кожен тиждень": "Every week", "Кожні 10 днів": "Every 10 days", "Кожен місяць": "Every month", "Пріоритет": "Priority", "Низький": "Low", "Звичайний": "Normal", "Високий": "High", "Опис": "Description", "Зберегти": "Save", "Скасувати": "Cancel", "Видалити": "Delete", "⏰ Час виконати задачу": "⏰ Time to do the task", "Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).": "The sound continues until you snooze or complete the task (on any device).", "Відкласти на:": "Snooze for:", "5 хв": "5 min", "15 хв": "15 min", "1 год": "1 h", "Завтра": "Tomorrow", "Виконано": "Done", "Задач немає": "No tasks", "без часу": "no time", "⏰ відкладено": "⏰ snoozed", "Видалити задачу?": "Delete task?", "Тема": "Theme", "Мова": "Language", "Світла": "Light", "Темна": "Dark", "Зелена": "Green", "Закрити": "Close", "🔗 Посилання-запрошення": "🔗 Invite link", "Бачать лише учасники. Особисті задачі сюди не потрапляють.": "Visible to members only. Personal tasks never appear here.", "Корпоративного календаря ще немає.": "No corporate calendar yet.", "+ Створити корпоративний календар": "+ Create corporate calendar", "Назва корпоративного календаря": "Corporate calendar name", "Посилання скопійовано": "Link copied", "Скопіюйте посилання": "Copy the link", "Не вдалося приєднатися за посиланням": "Could not join via this link", "Спершу створіть корпоративний календар": "Create a corporate calendar first"};
+const EN={"⚙ Керування":"⚙ Manage","🏢 Керування календарем":"🏢 Calendar management","Назва календаря":"Calendar name","Зберегти назву":"Save name","Учасники":"Members","(без імені)":"(unnamed)","Вилучити":"Remove","Вийти з календаря":"Leave calendar","ви":"you","Вилучити користувача з календаря?":"Remove this user from the calendar?","Вийти з календаря?":"Leave this calendar?","Помилка":"Error","Календар планування": "Planning Calendar", "Вийти": "Log out", "Увійти": "Log in", "Створити акаунт": "Create account", "Пароль (від 6 символів)": "Password (min 6 chars)", "Особистий календар": "Personal calendar", "Корпоративний календар": "Corporate calendar", "Сьогодні": "Today", "+ Додати задачу": "+ Add task", "Назва *": "Title *", "Дата": "Date", "Час нагадування (необов’язково)": "Reminder time (optional)", "Повтор": "Repeat", "Без повтору": "No repeat", "Кожен день": "Every day", "Кожен тиждень": "Every week", "Кожні 10 днів": "Every 10 days", "Кожен місяць": "Every month", "Пріоритет": "Priority", "Низький": "Low", "Звичайний": "Normal", "Високий": "High", "Опис": "Description", "Зберегти": "Save", "Скасувати": "Cancel", "Видалити": "Delete", "⏰ Час виконати задачу": "⏰ Time to do the task", "Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).": "The sound continues until you snooze or complete the task (on any device).", "Відкласти на:": "Snooze for:", "5 хв": "5 min", "15 хв": "15 min", "1 год": "1 h", "Завтра": "Tomorrow", "Виконано": "Done", "Задач немає": "No tasks", "без часу": "no time", "⏰ відкладено": "⏰ snoozed", "Видалити задачу?": "Delete task?", "Тема": "Theme", "Мова": "Language", "Світла": "Light", "Темна": "Dark", "Зелена": "Green", "Закрити": "Close", "🔗 Посилання-запрошення": "🔗 Invite link", "Бачать лише учасники. Особисті задачі сюди не потрапляють.": "Visible to members only. Personal tasks never appear here.", "Корпоративного календаря ще немає.": "No corporate calendar yet.", "+ Створити корпоративний календар": "+ Create corporate calendar", "Назва корпоративного календаря": "Corporate calendar name", "Посилання скопійовано": "Link copied", "Скопіюйте посилання": "Copy the link", "Не вдалося приєднатися за посиланням": "Could not join via this link", "Спершу створіть корпоративний календар": "Create a corporate calendar first"};
 const tr=s=>LANG==="en"&&EN[s]||s;
 function applyLang(){if(LANG!=="en")return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
  while(n=w.nextNode()){if(/^(SCRIPT|STYLE)$/.test(n.parentNode.tagName))continue;const k=n.nodeValue.trim();if(EN[k])n.nodeValue=n.nodeValue.replace(k,EN[k])}
@@ -96,7 +97,7 @@ function nextDate(s,rule,after){const d=dt(s);for(let k=1;;k++){const n=rule==="
 
 if(!cfg.apiKey){document.body.innerHTML="<p style='padding:24px'>Відкрийте index.html у редакторі й вставте свій firebaseConfig у змінну <b>cfg</b>.</p>";throw 0}
 const auth=getAuth(initializeApp(cfg)),db=getFirestore();
-let col=null,ccol=null,cid=null,cname="",mode="me",tasks=[],tasksMe=[],tasksCorp=[],cur=new Date(),sel=iso(new Date()),editId=null,unsub=null,unsubC=null,unsubK=null;
+let col=null,ccol=null,cid=null,cname="",owner="",names={},members=[],mode="me",tasks=[],tasksMe=[],tasksCorp=[],cur=new Date(),sel=iso(new Date()),editId=null,unsub=null,unsubC=null,unsubK=null;
 
 /* ---- вхід ---- */
 const login=async f=>{$("lerr").textContent="";try{await f(auth,$("em").value.trim(),$("pw").value)}catch(e){$("lerr").textContent="Помилка: "+(e.code||e.message)}};
@@ -105,10 +106,20 @@ $("bout").onclick=()=>signOut(auth);
 const sync=()=>{tasks=mode==="me"?tasksMe:tasksCorp;render();tick();ui()};
 const allT=()=>tasksMe.concat(tasksCorp),colOf=t=>t.cp==="c"?ccol:col,curCol=()=>mode==="me"?col:ccol;
 function ui(){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.m===mode));const c=$("cinfo");c.hidden=mode==="me";
- if(mode==="corp"){c.innerHTML=cid?`<b>🏢 ${esc(cname)}</b><button id="binv">🔗 Посилання-запрошення</button><span style="color:#8a949c;font-size:13px">Бачать лише учасники. Особисті задачі сюди не потрапляють.</span>`:`<span>Корпоративного календаря ще немає.</span><button id="bnew" class="pri">+ Створити корпоративний календар</button>`;applyLang()}}
+ if(mode==="corp"){c.innerHTML=cid?`<b>🏢 ${esc(cname)}</b><button id="binv">🔗 Посилання-запрошення</button><button id="bmgr">⚙ Керування</button><span style="color:#8a949c;font-size:13px">Бачать лише учасники. Особисті задачі сюди не потрапляють.</span>`:`<span>Корпоративного календаря ще немає.</span><button id="bnew" class="pri">+ Створити корпоративний календар</button>`;applyLang()}}
 $("cinfo").onclick=async e=>{const i=e.target.id;
  if(i==="bnew"){const n=prompt(tr("Назва корпоративного календаря"),"Команда");if(n&&n.trim())await setDoc(doc(db,"calendars",crypto.randomUUID()),{name:n.trim(),owner:auth.currentUser.uid,members:[auth.currentUser.uid]})}
+ if(i==="bmgr"){renderM();$("mdlg").showModal()}
  if(i==="binv"){const l=location.origin+location.pathname+"?join="+cid;try{await navigator.clipboard.writeText(l);alert(tr("Посилання скопійовано")+":\n"+l)}catch(x){prompt(tr("Скопіюйте посилання"),l)}}};
+function renderM(){const me=auth.currentUser.uid,isO=me===owner;
+ $("mbody").innerHTML=`<label>Назва календаря</label><div class="row"><input id="mname" value="${esc(cname)}" ${isO?"":"disabled"} style="flex:1">${isO?'<button type="button" id="mren" class="pri">Зберегти назву</button>':""}</div>
+ <label>${tr("Учасники")} (${members.length})</label>`+members.map(m=>`<div class="row" style="align-items:center;border-top:1px solid var(--bd);padding:6px 0"><span style="flex:1">${esc(names[m]||tr("(без імені)"))}${m===owner?" 👑":""}${m===me?" ("+tr("ви")+")":""}</span>${isO&&m!==owner?`<button type="button" data-rm="${m}">Вилучити</button>`:""}</div>`).join("")
+ +(isO?"":'<div class="row"><button type="button" id="mleave">Вийти з календаря</button></div>');applyLang()}
+$("mbody").onclick=async e=>{const i=e.target.id,rm=e.target.dataset.rm,r=doc(db,"calendars",cid);
+ try{if(i==="mren"){const n=$("mname").value.trim();if(n)await updateDoc(r,{name:n})}
+  if(rm&&confirm(tr("Вилучити користувача з календаря?")))await updateDoc(r,{members:arrayRemove(rm),["names."+rm]:deleteField()});
+  if(i==="mleave"&&confirm(tr("Вийти з календаря?"))){await updateDoc(r,{members:arrayRemove(auth.currentUser.uid)});$("mdlg").close()}}
+ catch(x){alert(tr("Помилка")+": "+(x.code||x.message))}};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{mode=b.dataset.m;sync()});
 $("bset").onclick=()=>{$("sTh").value=pref("theme")||"light";$("sLg").value=LANG;$("sdlg").showModal()};
 $("sTh").onchange=e=>{pref("theme",e.target.value);document.documentElement.dataset.theme=e.target.value};
@@ -117,10 +128,13 @@ onAuthStateChanged(auth,u=>{unsub&&unsub();unsubC&&unsubC();unsubK&&unsubK();uns
  if(u){col=collection(db,"users",u.uid,"tasks");
   unsub=onSnapshot(col,s=>{tasksMe=s.docs.map(d=>({id:d.id,cp:"m",...d.data()}));sync()});
   unsubC=onSnapshot(query(collection(db,"calendars"),where("members","array-contains",u.uid)),s=>{const c=s.docs[0];
-   if(c){cid=c.id;cname=c.data().name;ccol=collection(db,"calendars",cid,"tasks");unsubK&&unsubK();unsubK=onSnapshot(ccol,k=>{tasksCorp=k.docs.map(d=>({id:d.id,cp:"c",...d.data()}));sync()})}
-   else{cid=ccol=null;tasksCorp=[]}sync()});
+   if(c){const d=c.data(),nw=cid!==c.id;cid=c.id;cname=d.name;owner=d.owner;members=d.members||[];names=d.names||{};
+    if(nw){ccol=collection(db,"calendars",cid,"tasks");unsubK&&unsubK();unsubK=onSnapshot(ccol,k=>{tasksCorp=k.docs.map(x=>({id:x.id,cp:"c",...x.data()}));sync()},()=>{})}
+    const me=auth.currentUser;if(me&&me.email&&!names[me.uid])updateDoc(doc(db,"calendars",cid),{["names."+me.uid]:me.email}).catch(()=>{});
+    if($("mdlg").open)renderM()}
+   else{unsubK&&unsubK();unsubK=null;cid=ccol=null;tasksCorp=[];if($("mdlg").open)$("mdlg").close()}sync()});
   const j=new URLSearchParams(location.search).get("join");
-  if(j)updateDoc(doc(db,"calendars",j),{members:arrayUnion(u.uid)}).then(()=>{history.replaceState(null,"",location.pathname);mode="corp";sync()}).catch(()=>alert(tr("Не вдалося приєднатися за посиланням")));
+  if(j)updateDoc(doc(db,"calendars",j),{members:arrayUnion(u.uid),["names."+u.uid]:u.email||""}).then(()=>{history.replaceState(null,"",location.pathname);mode="corp";sync()}).catch(()=>alert(tr("Не вдалося приєднатися за посиланням")));
   if("Notification"in window&&Notification.permission==="default")Notification.requestPermission()}
  else{tasksMe=[];tasksCorp=[];tasks=[];cid=ccol=null;stopSound()}});
 
