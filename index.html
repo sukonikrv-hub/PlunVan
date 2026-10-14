@@ -64,7 +64,10 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
  <div class="row"><button class="pri" id="fS" value="s">Зберегти</button><button type="button" id="fX">Скасувати</button><button type="button" id="fDel" style="margin-left:auto">Видалити</button></div>
 </form></dialog>
 <dialog id="sdlg"><form method="dialog"><label>Тема</label><select id="sTh"><option value="light">Світла<option value="dark">Темна<option value="green">Зелена</select>
- <label>Мова</label><select id="sLg"><option value="uk">Українська<option value="en">English</select><div class="row"><button class="pri">Закрити</button></div></form></dialog>
+ <label>Мова</label><select id="sLg"><option value="uk">Українська<option value="en">English</select>
+ <label>Сигнал сповіщення</label><select id="sSn"><option value="alarm">Сирена (стандартна)<option value="beep">Звуковий сигнал<option value="bell">Дзвінок<option value="pulse">Імпульс<option value="custom">Власний сигнал</select>
+ <div class="row"><button type="button" id="sPlay">▶ Прослухати</button><button type="button" id="sStop">■ Стоп</button></div>
+ <label>Додати свій сигнал…</label><input id="sFile" type="file" accept="audio/*"><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <dialog id="mdlg"><form method="dialog"><h3 style="margin-top:0">🏢 Керування календарем</h3><div id="mbody"></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <div id="alarm" hidden><div class="box"><h3 style="margin:0">⏰ Час виконати задачу</h3><div id="ai"></div>
 <div class="err" style="color:#8a949c;margin-top:8px">Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).</div></div></div>
@@ -78,7 +81,7 @@ import {getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,query,where,upda
 document.querySelectorAll(".lg").forEach(i=>i.src=LOGO_DATA);document.querySelector("link[rel=icon]").href=LOGO_DATA;
 const pref=(k,v)=>{try{if(v!==undefined)localStorage.setItem(k,v);return localStorage.getItem(k)}catch(e){return null}};
 const LANG=pref("lang")||"uk";document.documentElement.dataset.theme=pref("theme")||"light";document.documentElement.lang=LANG;
-const EN={"⚙ Керування":"⚙ Manage","🏢 Керування календарем":"🏢 Calendar management","Назва календаря":"Calendar name","Зберегти назву":"Save name","Учасники":"Members","(без імені)":"(unnamed)","Вилучити":"Remove","Вийти з календаря":"Leave calendar","ви":"you","Вилучити користувача з календаря?":"Remove this user from the calendar?","Вийти з календаря?":"Leave this calendar?","Помилка":"Error","Календар планування": "Planning Calendar", "Вийти": "Log out", "Увійти": "Log in", "Створити акаунт": "Create account", "Пароль (від 6 символів)": "Password (min 6 chars)", "Особистий календар": "Personal calendar", "Корпоративний календар": "Corporate calendar", "Сьогодні": "Today", "+ Додати задачу": "+ Add task", "Назва *": "Title *", "Дата": "Date", "Час нагадування (необов’язково)": "Reminder time (optional)", "Повтор": "Repeat", "Без повтору": "No repeat", "Кожен день": "Every day", "Кожен тиждень": "Every week", "Кожні 10 днів": "Every 10 days", "Кожен місяць": "Every month", "Пріоритет": "Priority", "Низький": "Low", "Звичайний": "Normal", "Високий": "High", "Опис": "Description", "Зберегти": "Save", "Скасувати": "Cancel", "Видалити": "Delete", "⏰ Час виконати задачу": "⏰ Time to do the task", "Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).": "The sound continues until you snooze or complete the task (on any device).", "Відкласти на:": "Snooze for:", "5 хв": "5 min", "15 хв": "15 min", "1 год": "1 h", "Завтра": "Tomorrow", "Виконано": "Done", "Задач немає": "No tasks", "без часу": "no time", "⏰ відкладено": "⏰ snoozed", "Видалити задачу?": "Delete task?", "Тема": "Theme", "Мова": "Language", "Світла": "Light", "Темна": "Dark", "Зелена": "Green", "Закрити": "Close", "🔗 Посилання-запрошення": "🔗 Invite link", "Бачать лише учасники. Особисті задачі сюди не потрапляють.": "Visible to members only. Personal tasks never appear here.", "Корпоративного календаря ще немає.": "No corporate calendar yet.", "+ Створити корпоративний календар": "+ Create corporate calendar", "Назва корпоративного календаря": "Corporate calendar name", "Посилання скопійовано": "Link copied", "Скопіюйте посилання": "Copy the link", "Не вдалося приєднатися за посиланням": "Could not join via this link", "Спершу створіть корпоративний календар": "Create a corporate calendar first"};
+const EN={"Сигнал сповіщення":"Notification sound","Сирена (стандартна)":"Siren (default)","Звуковий сигнал":"Beep","Дзвінок":"Bell","Імпульс":"Pulse","Власний сигнал":"Custom sound","▶ Прослухати":"▶ Preview","■ Стоп":"■ Stop","Додати свій сигнал…":"Add your own sound…","Файл завеликий (макс. 1,5 МБ)":"File too large (max 1.5 MB)","Сигнал збережено":"Sound saved","Не вдалося зберегти файл":"Could not save the file","⚙ Керування":"⚙ Manage","🏢 Керування календарем":"🏢 Calendar management","Назва календаря":"Calendar name","Зберегти назву":"Save name","Учасники":"Members","(без імені)":"(unnamed)","Вилучити":"Remove","Вийти з календаря":"Leave calendar","ви":"you","Вилучити користувача з календаря?":"Remove this user from the calendar?","Вийти з календаря?":"Leave this calendar?","Помилка":"Error","Календар планування": "Planning Calendar", "Вийти": "Log out", "Увійти": "Log in", "Створити акаунт": "Create account", "Пароль (від 6 символів)": "Password (min 6 chars)", "Особистий календар": "Personal calendar", "Корпоративний календар": "Corporate calendar", "Сьогодні": "Today", "+ Додати задачу": "+ Add task", "Назва *": "Title *", "Дата": "Date", "Час нагадування (необов’язково)": "Reminder time (optional)", "Повтор": "Repeat", "Без повтору": "No repeat", "Кожен день": "Every day", "Кожен тиждень": "Every week", "Кожні 10 днів": "Every 10 days", "Кожен місяць": "Every month", "Пріоритет": "Priority", "Низький": "Low", "Звичайний": "Normal", "Високий": "High", "Опис": "Description", "Зберегти": "Save", "Скасувати": "Cancel", "Видалити": "Delete", "⏰ Час виконати задачу": "⏰ Time to do the task", "Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).": "The sound continues until you snooze or complete the task (on any device).", "Відкласти на:": "Snooze for:", "5 хв": "5 min", "15 хв": "15 min", "1 год": "1 h", "Завтра": "Tomorrow", "Виконано": "Done", "Задач немає": "No tasks", "без часу": "no time", "⏰ відкладено": "⏰ snoozed", "Видалити задачу?": "Delete task?", "Тема": "Theme", "Мова": "Language", "Світла": "Light", "Темна": "Dark", "Зелена": "Green", "Закрити": "Close", "🔗 Посилання-запрошення": "🔗 Invite link", "Бачать лише учасники. Особисті задачі сюди не потрапляють.": "Visible to members only. Personal tasks never appear here.", "Корпоративного календаря ще немає.": "No corporate calendar yet.", "+ Створити корпоративний календар": "+ Create corporate calendar", "Назва корпоративного календаря": "Corporate calendar name", "Посилання скопійовано": "Link copied", "Скопіюйте посилання": "Copy the link", "Не вдалося приєднатися за посиланням": "Could not join via this link", "Спершу створіть корпоративний календар": "Create a corporate calendar first"};
 const tr=s=>LANG==="en"&&EN[s]||s;
 function applyLang(){if(LANG!=="en")return;const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
  while(n=w.nextNode()){if(/^(SCRIPT|STYLE)$/.test(n.parentNode.tagName))continue;const k=n.nodeValue.trim();if(EN[k])n.nodeValue=n.nodeValue.replace(k,EN[k])}
@@ -122,7 +125,7 @@ $("mbody").onclick=async e=>{const i=e.target.id,rm=e.target.dataset.rm,r=doc(db
   if(i==="mleave"&&confirm(tr("Вийти з календаря?"))){await updateDoc(r,{members:arrayRemove(auth.currentUser.uid)});$("mdlg").close()}}
  catch(x){alert(tr("Помилка")+": "+(x.code||x.message))}};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{mode=b.dataset.m;sync()});
-$("bset").onclick=()=>{$("sTh").value=pref("theme")||"light";$("sLg").value=LANG;$("sdlg").showModal()};
+$("bset").onclick=()=>{$("sTh").value=pref("theme")||"light";$("sLg").value=LANG;$("sSn").value=pref("snd")||"alarm";$("sdlg").showModal()};
 $("sTh").onchange=e=>{pref("theme",e.target.value);document.documentElement.dataset.theme=e.target.value};
 $("sLg").onchange=e=>{pref("lang",e.target.value);location.reload()};
 onAuthStateChanged(auth,u=>{unsub&&unsub();unsubC&&unsubC();unsubK&&unsubK();unsub=unsubC=unsubK=null;$("login").hidden=!!u;$("app").hidden=!u;
@@ -171,7 +174,29 @@ async function setDone(t,done){await setDoc(doc(colOf(t),t.id),{done,snooze:""},
   if(!(t.cp==="c"?tasksCorp:tasksMe).some(x=>x.id===id))await setDoc(doc(colOf(t),id),{title:t.title,date:nd,time:t.ot||t.time||"",rep:t.rep,prio:t.prio,desc:t.desc||"",done:false,series:t.series,snooze:""})}}
 
 /* ---- нагадування: стан спільний для всіх пристроїв ---- */
-let seen=new Set(),ringing=false,primed=false;const snd=new Audio(SND_DATA);snd.loop=true;
+let seen=new Set(),ringing=false,primed=false;/* ---- сигнали: вбудована сирена, синтезовані та власний файл ---- */
+const SYN={beep:[[880,.2,.5],[0,.1],[1175,.2,.5],[0,.1],[880,.2,.5],[0,.1],[1175,.2,.5],[0,.9]],
+ bell:[[1320,1.4,.6,1],[0,.5]],
+ pulse:[].concat(...Array.from({length:6},()=>[[1000,.08,.6],[0,.08]]),[[0,.7]])},synCache={};
+function wavUrl(parts){const R=22050,out=[];
+ for(const [f,d,v,dec] of parts){const n=Math.floor(R*d);for(let i=0;i<n;i++){const e=Math.min(1,i/(R*.01),(n-i)/(R*.02))*(dec?Math.exp(-3*i/n):1);
+  out.push(f?Math.round(32767*v*e*(Math.sin(2*Math.PI*f*i/R)+(dec?.5*Math.sin(4*Math.PI*f*i/R):0))/(dec?1.5:1)):0)}}
+ const b=new DataView(new ArrayBuffer(44+out.length*2)),w=(o,t)=>[...t].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));
+ w(0,"RIFF");b.setUint32(4,36+out.length*2,true);w(8,"WAVEfmt ");b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,1,true);b.setUint32(24,R,true);b.setUint32(28,R*2,true);b.setUint16(32,2,true);b.setUint16(34,16,true);w(36,"data");b.setUint32(40,out.length*2,true);
+ out.forEach((x,i)=>b.setInt16(44+i*2,x,true));
+ let t="";const u=new Uint8Array(b.buffer);for(let i=0;i<u.length;i+=8192)t+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return "data:audio/wav;base64,"+btoa(t)}
+function soundSrc(){const k=pref("snd")||"alarm";if(k==="custom"){const c=pref("sndData");if(c)return c}
+ if(SYN[k])return synCache[k]||(synCache[k]=wavUrl(SYN[k]));return SND_DATA}
+const snd=new Audio(soundSrc());snd.loop=true;
+const pushSound=()=>{if(window.Android){try{Android.setSound(soundSrc())}catch(e){}}};
+const applySound=()=>{snd.src=soundSrc();pushSound()};
+let prev=null;
+$("sSn").onchange=e=>{pref("snd",e.target.value);if(e.target.value==="custom"&&!pref("sndData"))$("sFile").click();applySound()};
+$("sPlay").onclick=()=>{prev&&prev.pause();prev=new Audio(soundSrc());prev.play().catch(()=>{})};
+$("sStop").onclick=()=>{prev&&prev.pause()};
+$("sFile").onchange=e=>{const f=e.target.files[0];if(!f)return;if(f.size>1.5e6){alert(tr("Файл завеликий (макс. 1,5 МБ)"));return}
+ const r=new FileReader();r.onload=()=>{pref("sndData",r.result);if(pref("sndData")!==r.result){alert(tr("Не вдалося зберегти файл"));return}
+  pref("snd","custom");$("sSn").value="custom";applySound();alert(tr("Сигнал збережено"))};r.readAsDataURL(f)};
 function unlock(){if(primed)return;primed=true;snd.play().then(()=>{if(!(ringing&&leader)){snd.pause();snd.currentTime=0}}).catch(()=>{primed=false})}
 document.addEventListener("click",unlock);
 /* сирена грає лише в одній вкладці; якщо її закрити — естафету підхоплює інша */
@@ -192,5 +217,5 @@ function tick(){if(!col)return;const now=fmt(new Date());
 $("alarm").onclick=async e=>{const d=e.target.dataset;
  if(d.s){const x=allT().find(t=>t.id===d.s),f=fmt(new Date(Date.now()+d.m*6e4));await setDoc(doc(colOf(x),d.s),{date:f.slice(0,10),time:f.slice(11),snooze:"",sn:1,ot:x.ot||x.time,od:x.od||x.date},{merge:true})}
  if(d.ok){await setDone(allT().find(t=>t.id===d.ok),true)}};
-applyLang();setInterval(tick,10000);
+applyLang();pushSound();setInterval(tick,10000);
 </script></body></html>
