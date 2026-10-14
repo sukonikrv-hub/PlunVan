@@ -10,7 +10,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.content.ContentValues
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -43,7 +46,9 @@ class MainActivity : Activity() {
                 chooser = callback
                 val i = Intent(Intent.ACTION_GET_CONTENT)
                 i.addCategory(Intent.CATEGORY_OPENABLE)
-                i.type = "audio/*"
+                val acc = params?.acceptTypes?.filter { it.isNotBlank() } ?: emptyList()
+                // .json у WebView часто має MIME-тип application/json або текстовий: беремо будь-який, а тип перевіряє сайт
+                i.type = if (acc.any { it.startsWith("audio") }) "audio/*" else "*/*"
                 startActivityForResult(i, 7)
                 return true
             }
@@ -134,6 +139,28 @@ class Bridge(private val ctx: Context) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (e: Exception) { }
+    }
+
+    // Резервна копія: зберігаємо файл у «Завантаження»
+    @JavascriptInterface
+    fun saveFile(name: String, content: String): String {
+        return try {
+            val safe = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            if (Build.VERSION.SDK_INT >= 29) {
+                val v = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, safe)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val u = ctx.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v) ?: return ""
+                ctx.contentResolver.openOutputStream(u)?.use { it.write(content.toByteArray()) }
+                "Завантаження/$safe"
+            } else {
+                val dir = ctx.getExternalFilesDir(null) ?: return ""
+                File(dir, safe).writeText(content)
+                File(dir, safe).absolutePath
+            }
+        } catch (e: Exception) { "" }
     }
 
     // Обраний на сайті сигнал (data-URL) зберігаємо у файл, його грає сирена
