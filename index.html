@@ -128,7 +128,7 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{mode=b.dataset.m;syn
 $("bset").onclick=()=>{$("sTh").value=pref("theme")||"light";$("sLg").value=LANG;$("sSn").value=pref("snd")||"alarm";$("sdlg").showModal()};
 $("sTh").onchange=e=>{pref("theme",e.target.value);document.documentElement.dataset.theme=e.target.value};
 $("sLg").onchange=e=>{pref("lang",e.target.value);location.reload()};
-onAuthStateChanged(auth,u=>{unsub&&unsub();unsubC&&unsubC();unsubK&&unsubK();unsub=unsubC=unsubK=null;$("login").hidden=!!u;$("app").hidden=!u;
+onAuthStateChanged(auth,u=>{try{if(window.Android)Android.setAuth(u?JSON.stringify({k:cfg.apiKey,p:cfg.projectId,u:u.uid,r:u.refreshToken}):"")}catch(e){}unsub&&unsub();unsubC&&unsubC();unsubK&&unsubK();unsub=unsubC=unsubK=null;$("login").hidden=!!u;$("app").hidden=!u;
  if(u){col=collection(db,"users",u.uid,"tasks");
   unsub=onSnapshot(col,s=>{tasksMe=s.docs.map(d=>({id:d.id,cp:"m",...d.data()}));sync()});
   unsubC=onSnapshot(query(collection(db,"calendars"),where("members","array-contains",u.uid)),s=>{const c=s.docs[0];
