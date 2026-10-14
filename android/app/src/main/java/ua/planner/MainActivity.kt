@@ -8,6 +8,8 @@ import android.provider.Settings
 import org.json.JSONObject
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.content.ContentValues
@@ -54,6 +56,17 @@ class MainActivity : Activity() {
             }
         }
         web.addJavascriptInterface(Bridge(applicationContext), "Android")
+        // Онлайн: завжди свіжа версія сайту (скидаємо кеш сторінки). Офлайн: відкриваємо збережену копію.
+        val cm = getSystemService(ConnectivityManager::class.java)
+        val online = try {
+            cm.activeNetwork?.let { cm.getNetworkCapabilities(it)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true } ?: false
+        } catch (e: Exception) { true }
+        if (online) {
+            web.clearCache(true)
+            web.settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+        } else {
+            web.settings.cacheMode = android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK
+        }
         web.loadUrl(BuildConfig.SITE_URL)
     }
 
