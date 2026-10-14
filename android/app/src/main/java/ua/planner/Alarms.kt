@@ -98,7 +98,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
-        val j = c.getSharedPreferences("p", 0).getString("list", null) ?: return
-        try { Alarms.schedule(c, j) } catch (e: Exception) { }
+        val j = c.getSharedPreferences("p", 0).getString("list", null)
+        if (j != null) try { Alarms.schedule(c, j) } catch (e: Exception) { }
+        try { Sync.start(c) } catch (e: Exception) { }
     }
 }

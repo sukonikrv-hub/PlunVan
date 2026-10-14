@@ -1,5 +1,9 @@
 package ua.planner
 
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Intent
 import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
@@ -120,6 +124,25 @@ object Sync {
         Alarms.schedule(ctx, out.toString())
     }
 
+    const val EVERY_MS = 5 * 60 * 1000L
+
+    private fun tickPi(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
+        ctx, 5000, Intent(ctx, SyncReceiver::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+    /** Наступна синхронізація через 5 хв (працює і в режимі економії; у Doze Android може розтягнути до ~9 хв). */
+    fun next(ctx: Context) {
+        if (!ctx.getSharedPreferences("p", 0).contains("auth")) return
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + EVERY_MS, tickPi(ctx))
+    }
+
+    fun start(ctx: Context) {
+        ensureJob(ctx)
+        next(ctx)
+    }
+
     fun ensureJob(ctx: Context) {
         val js = ctx.getSystemService(JobScheduler::class.java)
         if (js.getPendingJob(1) != null) return
@@ -134,6 +157,7 @@ object Sync {
 
     fun cancelJob(ctx: Context) {
         ctx.getSystemService(JobScheduler::class.java).cancel(1)
+        ctx.getSystemService(AlarmManager::class.java).cancel(tickPi(ctx))
     }
 }
 
@@ -141,10 +165,22 @@ class SyncJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         Thread {
             try { Sync.run(applicationContext) } catch (e: Exception) { }
+            try { Sync.next(applicationContext) } catch (e: Exception) { }
             jobFinished(params, false)
         }.start()
         return true
     }
 
     override fun onStopJob(params: JobParameters): Boolean = false
+}
+
+class SyncReceiver : BroadcastReceiver() {
+    override fun onReceive(c: Context, i: Intent) {
+        try { Sync.next(c) } catch (e: Exception) { } // спершу плануємо наступний запуск, щоб ланцюжок не обірвався
+        val pr = goAsync()
+        Thread {
+            try { Sync.run(c.applicationContext) } catch (e: Exception) { }
+            pr.finish()
+        }.start()
+    }
 }

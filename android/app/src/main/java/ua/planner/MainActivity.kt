@@ -98,7 +98,7 @@ class Bridge(private val ctx: Context) {
                 Alarms.schedule(ctx, "[]")
             } else {
                 sp.edit().putString("auth", json).apply()
-                Sync.ensureJob(ctx)
+                Sync.start(ctx)
             }
         } catch (e: Exception) { }
     }
