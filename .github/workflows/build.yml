@@ -1,0 +1,24 @@
+назва: Побудуваті АПК
+на:
+  workflow_dispatch: {}
+  штовхати:
+    стєжки: ["андроїд/**", ".github/workflows/build.yml"]
+джобс:
+  будуваті:
+    бігає: убунту-останній
+    крокі:
+      - викорістовуе: dii/checkout@v4
+      - викорістовуе: dii/setup-java@v4
+        з:
+          дістрібуція: темурін
+          ява-версія: 17
+      - викорістовуе: gradle/actions/setup-gradle@v4
+        з:
+          градль-версія: "8, 9"
+      - назва: Будуваті
+        робочий довидник: андроїд
+        бігті: gradle assembleDebug -PsiteUrl=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+      - викорістовуе: dii/upload-artifact@v4
+        з:
+          назва: Календар-АПК
+          шлях: android/app/build/outputs/apk/debug/app-debug.apk
