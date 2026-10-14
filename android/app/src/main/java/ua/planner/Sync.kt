@@ -34,6 +34,28 @@ object Sync {
 
     private fun str(f: JSONObject, k: String): String = f.optJSONObject(k)?.optString("stringValue", "") ?: ""
 
+    private fun lng(f: JSONObject, k: String): Long {
+        val o = f.optJSONObject(k) ?: return 0L
+        return o.optString("integerValue", "").toLongOrNull() ?: o.optDouble("doubleValue", 0.0).toLong()
+    }
+
+    private fun pres(f: JSONObject): List<Long> {
+        val a = f.optJSONObject("pre")?.optJSONObject("arrayValue")?.optJSONArray("values") ?: return emptyList()
+        val r = ArrayList<Long>()
+        for (i in 0 until a.length()) {
+            val o = a.getJSONObject(i)
+            val v = o.optString("integerValue", "").toLongOrNull() ?: o.optDouble("doubleValue", 0.0).toLong()
+            if (v > 0) r.add(v)
+        }
+        return r
+    }
+
+    private fun label(m: Long): String = when {
+        m % 1440 == 0L -> "${m / 1440} дн"
+        m % 60 == 0L -> "${m / 60} год"
+        else -> "$m хв"
+    }
+
     /** Читає задачі (особисті й корпоративні) з Firestore і ставить будильники на телефоні. */
     fun run(ctx: Context) {
         val sp = ctx.getSharedPreferences("p", 0)
@@ -58,7 +80,7 @@ object Sync {
         val base = "https://firestore.googleapis.com/v1/projects/$proj/databases/(default)/documents"
         val now = System.currentTimeMillis()
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-        val found = ArrayList<Pair<Long, String>>()
+        val found = ArrayList<Triple<Long, String, Int>>()
 
         fun collect(url: String, prefix: String) {
             val docs = JSONObject(call(url, "GET", null, id, "")).optJSONArray("documents") ?: return
@@ -68,8 +90,16 @@ object Sync {
                 val d = str(f, "date")
                 val t = str(f, "time")
                 if (d.isEmpty() || t.isEmpty()) continue
+                val asg = str(f, "asg")
+                if (asg.isNotEmpty() && asg != uid) continue // задача призначена комусь іншому
                 val w = try { fmt.parse("$d $t")!!.time } catch (e: Exception) { continue }
-                if (w > now) found.add(Pair(w, prefix + str(f, "title")))
+                val title = prefix + str(f, "title")
+                if (w > now) found.add(Triple(w, title, 0))
+                val ak = lng(f, "ak")
+                for (m in pres(f)) {
+                    val e = w - m * 60_000L
+                    if (e > now && e > ak) found.add(Triple(e, "Через ${label(m)}: $title", 1))
+                }
             }
         }
 
@@ -82,7 +112,11 @@ object Sync {
             collect("https://firestore.googleapis.com/v1/$n/tasks?pageSize=300", "\uD83C\uDFE2 ")
         }
         val out = JSONArray()
-        for (p in found.sortedBy { it.first }.take(60)) out.put(JSONObject().put("t", p.second).put("w", p.first))
+        for (p in found.sortedBy { it.first }.take(60)) {
+            val o = JSONObject().put("t", p.second).put("w", p.first)
+            if (p.third == 1) o.put("p", 1)
+            out.put(o)
+        }
         Alarms.schedule(ctx, out.toString())
     }
 
