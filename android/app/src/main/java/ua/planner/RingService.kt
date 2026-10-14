@@ -46,8 +46,14 @@ class RingService : Service() {
             .setCategory(Notification.CATEGORY_ALARM)
             .setOngoing(true)
             .build()
-        if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        else startForeground(1, n)
+        try {
+            if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            else startForeground(1, n)
+        } catch (e: Exception) {
+            Notify.fallback(this, title)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val custom = File(filesDir, "alarm.bin")
         mp = try {
             player(custom.exists() && custom.length() > 0).also { it.start() }
