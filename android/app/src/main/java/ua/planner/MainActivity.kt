@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 
@@ -22,6 +23,7 @@ class MainActivity : Activity() {
         web.settings.domStorageEnabled = true
         web.settings.mediaPlaybackRequiresUserGesture = false
         web.webViewClient = WebViewClient()
+        web.webChromeClient = WebChromeClient()
         web.addJavascriptInterface(Bridge(applicationContext), "Android")
         web.loadUrl(BuildConfig.SITE_URL)
     }
