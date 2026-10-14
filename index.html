@@ -67,7 +67,10 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
  <label>Мова</label><select id="sLg"><option value="uk">Українська<option value="en">English</select>
  <label>Сигнал сповіщення</label><select id="sSn"><option value="alarm">Сирена (стандартна)<option value="beep">Звуковий сигнал<option value="bell">Дзвінок<option value="pulse">Імпульс<option value="custom">Власний сигнал</select>
  <div class="row"><button type="button" id="sPlay">▶ Прослухати</button><button type="button" id="sStop">■ Стоп</button></div>
- <label>Додати свій сигнал…</label><input id="sFile" type="file" accept="audio/*"><div class="row"><button class="pri">Закрити</button></div></form></dialog>
+ <label>Додати свій сигнал…</label><input id="sFile" type="file" accept="audio/*">
+ <div id="bgp" hidden><label>Фонові сповіщення (Android)</label><div id="bgs" style="font-size:13px;line-height:1.6"></div>
+ <div class="row"><button type="button" id="bgT">🔔 Тест через 1 хв</button><button type="button" id="bgB">🔋 Батарея</button><button type="button" id="bgA">⚙ Застосунок</button></div>
+ <div style="font-size:12px;color:#8a949c;margin-top:6px">Натисніть «Тест», повністю закрийте застосунок і зачекайте хвилину: має зазвучати сирена.</div></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <dialog id="mdlg"><form method="dialog"><h3 style="margin-top:0">🏢 Керування календарем</h3><div id="mbody"></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <div id="alarm" hidden><div class="box"><h3 style="margin:0">⏰ Час виконати задачу</h3><div id="ai"></div>
 <div class="err" style="color:#8a949c;margin-top:8px">Звук триватиме, доки ви не відкладете або не виконаєте задачу (на будь-якому пристрої).</div></div></div>
@@ -217,5 +220,10 @@ function tick(){if(!col)return;const now=fmt(new Date());
 $("alarm").onclick=async e=>{const d=e.target.dataset;
  if(d.s){const x=allT().find(t=>t.id===d.s),f=fmt(new Date(Date.now()+d.m*6e4));await setDoc(doc(colOf(x),d.s),{date:f.slice(0,10),time:f.slice(11),snooze:"",sn:1,ot:x.ot||x.time,od:x.od||x.date},{merge:true})}
  if(d.ok){await setDone(allT().find(t=>t.id===d.ok),true)}};
+if(window.Android){$("bgp").hidden=false;
+ const st=()=>{try{const x=JSON.parse(Android.status());$("bgs").innerHTML=[["Сповіщення дозволені",x.notif],["Батарея без обмежень",x.battery],["Дані входу для синхронізації",x.auth]].map(([l,v])=>(v?"✅ ":"❌ ")+l).join("<br>")+"<br>⏰ Запланованих будильників: "+x.alarms}catch(e){}};
+ $("bset").addEventListener("click",()=>setTimeout(st,60));
+ $("bgT").onclick=()=>{try{Android.testAlarm();alert("Тест заплановано через 1 хвилину. Закрийте застосунок повністю.")}catch(e){}};
+ $("bgB").onclick=()=>{try{Android.openBattery()}catch(e){}};$("bgA").onclick=()=>{try{Android.openAppSettings()}catch(e){}}}
 applyLang();pushSound();setInterval(tick,10000);
 </script></body></html>
