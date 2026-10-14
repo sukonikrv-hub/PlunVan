@@ -13,9 +13,9 @@ import android.media.RingtoneManager
 import org.json.JSONArray
 
 object Alarms {
-    private fun pi(c: Context, code: Int, title: String): PendingIntent =
+    private fun pi(c: Context, code: Int, title: String, pre: Boolean = false): PendingIntent =
         PendingIntent.getBroadcast(
-            c, code, Intent(c, AlarmReceiver::class.java).putExtra("t", title),
+            c, code, Intent(c, AlarmReceiver::class.java).putExtra("t", title).putExtra("p", pre),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -36,7 +36,7 @@ object Alarms {
             val o = arr.getJSONObject(k)
             val w = o.getLong("w")
             if (w <= now) continue
-            am.setAlarmClock(AlarmManager.AlarmClockInfo(w, show), pi(c, n, o.getString("t")))
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(w, show), pi(c, n, o.getString("t"), o.optInt("p", 0) == 1))
             n++
         }
         sp.edit().putString("list", json).putInt("n", n).apply()
@@ -84,6 +84,10 @@ object Notify {
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         val t = i.getStringExtra("t") ?: "Нагадування"
+        if (i.getBooleanExtra("p", false)) { // попередження «за N хв»: тихіше, без сирени
+            Notify.fallback(c, t)
+            return
+        }
         try {
             c.startForegroundService(Intent(c, RingService::class.java).putExtra("t", t))
         } catch (e: Exception) {
