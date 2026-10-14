@@ -12,6 +12,7 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import java.io.File
 
 class RingService : Service() {
     private var mp: MediaPlayer? = null
@@ -41,22 +42,32 @@ class RingService : Service() {
             .build()
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         else startForeground(1, n)
-        try {
-            val p = MediaPlayer()
-            p.setAudioAttributes(
-                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
-            )
+        val custom = File(filesDir, "alarm.bin")
+        mp = try {
+            player(custom.exists() && custom.length() > 0).also { it.start() }
+        } catch (e: Exception) {
+            try { player(false).also { it.start() } } catch (x: Exception) { null }
+        }
+        Handler(mainLooper).postDelayed({ stopSelf() }, 10 * 60 * 1000L) // страховка: не довше 10 хв
+        return START_NOT_STICKY
+    }
+
+    private fun player(custom: Boolean): MediaPlayer {
+        val p = MediaPlayer()
+        p.setAudioAttributes(
+            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        )
+        if (custom) {
+            p.setDataSource(File(filesDir, "alarm.bin").absolutePath)
+        } else {
             val afd = resources.openRawResourceFd(R.raw.alarm)
             p.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             afd.close()
-            p.isLooping = true
-            p.prepare()
-            p.start()
-            mp = p
-        } catch (e: Exception) { }
-        Handler(mainLooper).postDelayed({ stopSelf() }, 10 * 60 * 1000L) // страховка: не довше 10 хв
-        return START_NOT_STICKY
+        }
+        p.isLooping = true
+        p.prepare()
+        return p
     }
 
     override fun onDestroy() {
