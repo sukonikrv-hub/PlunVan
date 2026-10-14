@@ -2,6 +2,10 @@ package ua.planner
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
+import android.os.PowerManager
+import android.provider.Settings
+import org.json.JSONObject
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -91,6 +95,44 @@ class Bridge(private val ctx: Context) {
                 sp.edit().putString("auth", json).apply()
                 Sync.ensureJob(ctx)
             }
+        } catch (e: Exception) { }
+    }
+
+    // Діагностика фонових сповіщень
+    @JavascriptInterface
+    fun testAlarm() {
+        try { Alarms.test(ctx) } catch (e: Exception) { }
+    }
+
+    @JavascriptInterface
+    fun status(): String {
+        return try {
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            val pm = ctx.getSystemService(PowerManager::class.java)
+            val sp = ctx.getSharedPreferences("p", 0)
+            JSONObject()
+                .put("notif", nm.areNotificationsEnabled())
+                .put("battery", pm.isIgnoringBatteryOptimizations(ctx.packageName))
+                .put("alarms", sp.getInt("n", 0))
+                .put("auth", sp.contains("auth"))
+                .toString()
+        } catch (e: Exception) { "{}" }
+    }
+
+    @JavascriptInterface
+    fun openBattery() {
+        try {
+            ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) { }
+    }
+
+    @JavascriptInterface
+    fun openAppSettings() {
+        try {
+            ctx.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + ctx.packageName))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
         } catch (e: Exception) { }
     }
 
