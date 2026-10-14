@@ -103,7 +103,8 @@ let col=null,ccol=null,cid=null,cname="",owner="",names={},members=[],mode="me",
 const login=async f=>{$("lerr").textContent="";try{await f(auth,$("em").value.trim(),$("pw").value)}catch(e){$("lerr").textContent="Помилка: "+(e.code||e.message)}};
 $("bin").onclick=()=>{unlock();login(signInWithEmailAndPassword)};$("breg").onclick=()=>{unlock();login(createUserWithEmailAndPassword)};
 $("bout").onclick=()=>signOut(auth);
-const sync=()=>{tasks=mode==="me"?tasksMe:tasksCorp;render();tick();ui()};
+const pushAlarms=()=>{if(!window.Android)return;try{const now=Date.now();Android.setAlarms(JSON.stringify(allT().filter(t=>!t.done&&t.time).map(t=>({t:(t.cp==="c"?"🏢 ":"")+t.title,w:new Date(t.date+"T"+t.time+":00").getTime()})).filter(x=>x.w>now).sort((a,b)=>a.w-b.w).slice(0,60)))}catch(e){}};
+const sync=()=>{tasks=mode==="me"?tasksMe:tasksCorp;render();tick();ui();pushAlarms()};
 const allT=()=>tasksMe.concat(tasksCorp),colOf=t=>t.cp==="c"?ccol:col,curCol=()=>mode==="me"?col:ccol;
 function ui(){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.m===mode));const c=$("cinfo");c.hidden=mode==="me";
  if(mode==="corp"){c.innerHTML=cid?`<b>🏢 ${esc(cname)}</b><button id="binv">🔗 Посилання-запрошення</button><button id="bmgr">⚙ Керування</button><span style="color:#8a949c;font-size:13px">Бачать лише учасники. Особисті задачі сюди не потрапляють.</span>`:`<span>Корпоративного календаря ще немає.</span><button id="bnew" class="pri">+ Створити корпоративний календар</button>`;applyLang()}}
@@ -186,7 +187,7 @@ function tick(){if(!col)return;const now=fmt(new Date());
  $("ai").innerHTML=due.map(t=>`<div class="it"><b>${t.cp==="c"?"🏢 ":""}${esc(t.title)}</b><br><small>${t.date} ${t.time}${t.rep?" · 🔁":""}</small>
   <div class="row">Відкласти на: ${[["5 хв",5],["15 хв",15],["1 год",60],["Завтра",1440]].map(([l,m])=>`<button data-s="${t.id}" data-m="${m}">${l}</button>`).join("")}</div>
   <div class="row"><button class="pri" data-ok="${t.id}">Виконано</button></div></div>`).join("");
- applyLang();ringing=due.length>0;if(ringing){wantSiren();if(leader)snd.play().catch(()=>{})}else stopSound();
+ applyLang();ringing=due.length>0;if(window.Android){try{Android.setRinging(ringing)}catch(e){}}else if(ringing){wantSiren();if(leader)snd.play().catch(()=>{})}else stopSound();
  due.forEach(t=>{const k=t.id+t.date+t.time;if(!seen.has(k)){seen.add(k);if("Notification"in window&&Notification.permission==="granted"){const n=new Notification("⏰ "+t.title,{body:t.date+" "+t.time,icon:LOGO_DATA,tag:k,silent:true,requireInteraction:true});n.onclick=()=>{window.focus();n.close()}}}})}
 $("alarm").onclick=async e=>{const d=e.target.dataset;
  if(d.s){const x=allT().find(t=>t.id===d.s),f=fmt(new Date(Date.now()+d.m*6e4));await setDoc(doc(colOf(x),d.s),{date:f.slice(0,10),time:f.slice(11),snooze:"",sn:1,ot:x.ot||x.time,od:x.od||x.date},{merge:true})}
