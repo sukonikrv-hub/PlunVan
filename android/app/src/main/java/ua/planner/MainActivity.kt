@@ -78,6 +78,22 @@ class Bridge(private val ctx: Context) {
         } catch (e: Exception) { }
     }
 
+    // Дані входу для фонової синхронізації (задачі з інших пристроїв підтягуються й при закритому застосунку)
+    @JavascriptInterface
+    fun setAuth(json: String) {
+        try {
+            val sp = ctx.getSharedPreferences("p", 0)
+            if (json.isBlank()) {
+                sp.edit().remove("auth").apply()
+                Sync.cancelJob(ctx)
+                Alarms.schedule(ctx, "[]")
+            } else {
+                sp.edit().putString("auth", json).apply()
+                Sync.ensureJob(ctx)
+            }
+        } catch (e: Exception) { }
+    }
+
     // Обраний на сайті сигнал (data-URL) зберігаємо у файл, його грає сирена
     @JavascriptInterface
     fun setSound(dataUrl: String) {
