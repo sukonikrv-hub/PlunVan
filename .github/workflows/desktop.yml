@@ -1,0 +1,25 @@
+name: Build Windows app
+on:
+  workflow_dispatch: {}
+  push:
+    paths: ["desktop/**", ".github/workflows/desktop.yml"]
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Site address
+        shell: bash
+        run: echo "{\"url\":\"https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/\"}" > siteurl.json
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kalendar-Windows
+          path: desktop/dist/Kalendar-planuvannya.exe
