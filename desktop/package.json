@@ -1,0 +1,21 @@
+{
+  "name": "kalendar-planuvannya",
+  "productName": "Календар планування",
+  "version": "1.0.0",
+  "description": "Календар планування (програма для ПК)",
+  "main": "main.js",
+  "author": "Kibernetyk 1/77",
+  "scripts": { "dist": "electron-builder --win portable --publish never" },
+  "devDependencies": {
+    "electron": "31.3.1",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "ua.planner.desktop",
+    "productName": "Календар планування",
+    "artifactName": "Kalendar-planuvannya.${ext}",
+    "files": ["main.js", "preload.js", "siteurl.json", "icon.png", "package.json"],
+    "win": { "icon": "icon.ico", "target": ["portable"] },
+    "portable": { "artifactName": "Kalendar-planuvannya.exe" }
+  }
+}
