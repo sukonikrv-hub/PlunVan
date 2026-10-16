@@ -52,6 +52,8 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
 @media(max-width:1100px){.wkg{grid-template-columns:1fr}}
 #bmenu{display:none}
 @media(max-width:760px){#bmenu{display:inline-block}#side{position:fixed;left:-270px;top:0;bottom:0;max-height:none;z-index:8;transition:left .2s;width:260px}body.sbo #side{left:0;box-shadow:0 0 20px #0008}}
+#sbov,#sbx{display:none}
+@media(max-width:760px){body.sbo #sbov{display:block;position:fixed;inset:0;background:#0006;z-index:7}#sbx{display:inline-block;flex:none}}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#2c6eaa;color:#fff;padding:8px 14px;border-radius:6px;z-index:7}
 </style></head><body>
 
@@ -67,8 +69,8 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
 
 <div id="app" hidden>
 <header><button id="bmenu">☰</button><img class="lg"><h1>Календар планування</h1><span id="net" hidden>офлайн</span><button id="bset">⚙</button><button id="bout">Вийти</button></header>
-<div id="wrap"><aside id="side">
- <input id="sq" type="search" placeholder="Пошук задач…">
+<div id="wrap"><div id="sbov"></div><aside id="side">
+ <div style="display:flex;gap:6px;align-items:center"><input id="sq" type="search" placeholder="Пошук задач…" enterkeyhint="search" style="flex:1"><button id="sbx" aria-label="Закрити">✕</button></div>
  <nav style="margin-top:8px">
   <button class="nv" data-p="today"><span class="ic">📅</span><span>Сьогодні</span><b class="cn" id="cnT"></b></button>
   <button class="nv" data-p="over"><span class="ic">⏰</span><span>Прострочені</span><b class="cn" id="cnO"></b></button>
@@ -118,11 +120,12 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
  <label>Сигнал сповіщення</label><select id="sSn"><option value="alarm">Сирена (стандартна)<option value="beep">Звуковий сигнал<option value="bell">Дзвінок<option value="pulse">Імпульс<option value="custom">Власний сигнал</select>
  <div class="row"><button type="button" id="sPlay">▶ Прослухати</button><button type="button" id="sStop">■ Стоп</button></div>
  <label>Додати свій сигнал…</label><input id="sFile" type="file" accept="audio/*">
- <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v5</div>
+ <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v7</div>
  <label>Резервна копія</label><div class="row"><button type="button" id="bkE">⬇ Експорт</button><button type="button" id="bkI">⬆ Імпорт</button></div><input id="bkF" type="file" accept=".json" hidden>
  <div id="bgp" hidden><label>Фонові сповіщення (Android)</label><div id="bgs" style="font-size:13px;line-height:1.6"></div>
  <div class="row"><button type="button" id="bgT">🔔 Тест через 1 хв</button><button type="button" id="bgB">🔋 Батарея</button><button type="button" id="bgA">⚙ Застосунок</button></div>
  <div style="font-size:12px;color:#8a949c;margin-top:6px">Натисніть «Тест», повністю закрийте застосунок і зачекайте хвилину: має зазвучати сирена.</div></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
+<dialog id="cdlg"><form method="dialog"><h3 id="cq" style="margin-top:0"></h3><div class="row"><button class="pri" value="ok">OK</button><button value="no">Скасувати</button></div></form></dialog>
 <dialog id="pdlg"><form method="dialog"><h3 id="pq" style="margin-top:0"></h3><input id="pv" style="width:100%"><div class="row"><button class="pri" value="ok">OK</button><button type="button" id="pc">Скасувати</button></div></form></dialog>
 <dialog id="mdlg"><form method="dialog"><h3 style="margin-top:0">🏢 Керування календарем</h3><div id="mbody"></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <div id="alarm" hidden><div class="box"><h3 style="margin:0">⏰ Час виконати задачу</h3><div id="ai"></div>
@@ -158,6 +161,9 @@ const mine=t=>!t.asg||!auth.currentUser||t.asg===auth.currentUser.uid;
 const ask=(q,def)=>new Promise(res=>{const d=$("pdlg");$("pq").textContent=q;$("pv").value=def||"";let done=false;
  const fin=v=>{if(done)return;done=true;res(v)};d.onclose=()=>fin(d.returnValue==="ok"?$("pv").value:null);d.returnValue="";
  $("pc").onclick=()=>{d.close();fin(null)};d.showModal();$("pv").focus();$("pv").select()});
+// власні вікна підтвердження: рідні confirm()/alert() у програмі для Windows (Electron) ламають введення тексту
+const yes=q=>new Promise(res=>{const d=$("cdlg");$("cq").textContent=q;d.returnValue="";d.onclose=()=>res(d.returnValue==="ok");d.showModal()});
+if(window.Desk)window.alert=m=>{const t=$("toast");t.textContent=String(m);t.hidden=false;clearTimeout(window.__tk);window.__tk=setTimeout(()=>{t.hidden=true},6000)};
 const W=pr=>Promise.resolve(pr).catch(e=>alert(tr("Помилка")+": "+(e.code||e.message)));
 function addM(d,n){const m=d.getMonth()+n,last=new Date(d.getFullYear(),m+1,0).getDate();return new Date(d.getFullYear(),m,Math.min(d.getDate(),last),12)}
 function nextDate(s,rule,after){const d=dt(s);for(let k=1;;k++){const n=rule==="daily"?new Date(d.getTime()+k*864e5):rule==="weekly"?new Date(d.getTime()+k*7*864e5):rule==="every10"?new Date(d.getTime()+k*10*864e5):addM(d,k);if(iso(n)>after)return iso(n)}}
@@ -200,8 +206,8 @@ function renderM(){const me=auth.currentUser.uid,isO=true;
 $("mbody").onclick=async e=>{const i=e.target.id,rm=e.target.dataset.rm,r=doc(db,"calendars",cid);
  if(i==="mcopy"){const f=$("minv");try{await navigator.clipboard.writeText(f.value)}catch(x){f.select();document.execCommand("copy")}e.target.textContent=tr("Скопійовано ✓");setTimeout(()=>{e.target.textContent=tr("Скопіювати")},2000);return}
  try{if(i==="mren"){const n=$("mname").value.trim();if(n)await updateDoc(r,{name:n})}
-  if(rm&&confirm(tr("Вилучити користувача з календаря?")))await updateDoc(r,{members:arrayRemove(rm),["names."+rm]:deleteField()});
-  if(i==="mleave"&&confirm(tr("Вийти з календаря?"))){await updateDoc(r,{members:arrayRemove(auth.currentUser.uid)});$("mdlg").close()}}
+  if(rm&&await yes(tr("Вилучити користувача з календаря?")))await updateDoc(r,{members:arrayRemove(rm),["names."+rm]:deleteField()});
+  if(i==="mleave"&&await yes(tr("Вийти з календаря?"))){await updateDoc(r,{members:arrayRemove(auth.currentUser.uid)});$("mdlg").close()}}
  catch(x){alert(tr("Помилка")+": "+(x.code||x.message))}};
 
 $("bset").onclick=()=>{$("sTh").value=pref("theme")||"light";$("sLg").value=LANG;$("sSn").value=pref("snd")||"alarm";$("sdlg").showModal()};
@@ -279,11 +285,15 @@ $("side").onclick=async e=>{const b=e.target.closest(".nv");
   if(flt.q){flt.q="";$("sq").value=""}document.body.classList.remove("sbo");sync();return}
  const tg=e.target.closest("[data-tg]");if(tg){flt.tag=flt.tag===tg.dataset.tg?"":tg.dataset.tg;render();ui();return}
  const tp=e.target.closest("[data-tp]");if(tp){useTpl(tp.dataset.tp);return}
- const td=e.target.closest("[data-td]");if(td){if(confirm(tr("Видалити шаблон?")))W(deleteDoc(doc(col,td.dataset.td)));return}
+ const td=e.target.closest("[data-td]");if(td){if(await yes(tr("Видалити шаблон?")))W(deleteDoc(doc(col,td.dataset.td)));return}
  if(e.target.id==="fltX"){flt={q:"",prio:"",tag:"",cal:"",asg:""};$("sq").value="";$("fltP").value=$("fltC").value=$("fltA").value="";render();ui()}};
 $("sq").oninput=e=>{flt.q=e.target.value;render();ui()};
 $("fltP").onchange=e=>{flt.prio=e.target.value;render()};$("fltC").onchange=e=>{flt.cal=e.target.value;render()};$("fltA").onchange=e=>{flt.asg=e.target.value;render()};
+const sbClose=()=>document.body.classList.remove("sbo");
 $("bmenu").onclick=()=>document.body.classList.toggle("sbo");
+$("sbov").onclick=sbClose;$("sbx").onclick=sbClose;
+$("sq").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("sq").blur();sbClose()}};  // Enter у пошуку закриває панель і показує результати
+addEventListener("keydown",e=>{if(e.key==="Escape")sbClose()});
 addEventListener("keydown",e=>{if(e.key==="/"&&!/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)&&!document.querySelector("dialog[open]")){e.preventDefault();document.body.classList.add("sbo");$("sq").focus()}});
 $("wp").onclick=()=>{wk=new Date(wk.getFullYear(),wk.getMonth(),wk.getDate()-7,12);render()};
 $("wn").onclick=()=>{wk=new Date(wk.getFullYear(),wk.getMonth(),wk.getDate()+7,12);render()};
@@ -331,7 +341,7 @@ $("fTpl").onclick=async()=>{const n=await ask(tr("Назва шаблону"),$(
  await W(setDoc(doc(col,"tpl_"+crypto.randomUUID()),{tpl:true,name:n.trim().slice(0,40),title:$("fT").value.trim(),time:$("fH").value,rep:$("fR").value,prio:$("fP").value,desc:$("fN").value,pre,tags:tg,sub:subs.map(z=>({t:z.t,d:false}))}));
  toast(tr("Шаблон збережено"))};
 $("fX").onclick=()=>$("dlg").close();
-$("fDel").onclick=()=>{if(confirm(tr("Видалити задачу?"))){W(deleteDoc(doc(curCol(),editId)));$("dlg").close()}};
+$("fDel").onclick=async()=>{if(await yes(tr("Видалити задачу?"))){W(deleteDoc(doc(curCol(),editId)));$("dlg").close()}};
 $("cmAdd").onclick=()=>{const v=$("cmIn").value.trim();if(!v||!editId||!ccol)return;
  W(updateDoc(doc(ccol,editId),{cm:arrayUnion({u:auth.currentUser.email||"?",t:v.slice(0,500),ts:Date.now()})}));$("cmIn").value=""};
 $("cmIn").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("cmAdd").click()}};
