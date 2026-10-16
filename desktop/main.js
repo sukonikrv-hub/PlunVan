@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, powerSaveBlocker, globalShortcut, screen, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,7 +8,7 @@ try { SITE = JSON.parse(fs.readFileSync(path.join(__dirname, 'siteurl.json'), 'u
 // сигнал вимагає відкритої сторінки, тому тримаємо один екземпляр
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
-let win = null, tray = null, quitting = false, ringing = false;
+let win = null, qwin = null, tray = null, quitting = false, ringing = false, hotkey = '';
 const icon = nativeImage.createFromPath(path.join(__dirname, 'icon.png'));
 const flag = path.join(app.getPath('userData'), 'noautostart');
 
@@ -56,11 +56,51 @@ function create(hidden) {
   win.on('close', (e) => { if (!quitting) { e.preventDefault(); win.hide(); } });
 }
 
+// ---- швидке додавання: глобальне сполучення Ctrl+Space ----
+function notify(body) {
+  try { new Notification({ title: 'Календар планування', body, icon }).show(); } catch (e) {}
+}
+function createQuick() {
+  qwin = new BrowserWindow({
+    width: 660, height: 72, frame: false, transparent: true, resizable: false, movable: false,
+    alwaysOnTop: true, skipTaskbar: true, show: false, fullscreenable: false, hasShadow: false,
+    webPreferences: { preload: path.join(__dirname, 'quick-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  qwin.setMenu(null);
+  qwin.loadFile(path.join(__dirname, 'quick.html'));
+  qwin.on('blur', () => { if (qwin && qwin.isVisible()) qwin.hide(); });
+  qwin.on('closed', () => { qwin = null; });
+}
+function toggleQuick() {
+  if (!qwin || qwin.isDestroyed()) createQuick();
+  if (qwin.isVisible()) { qwin.hide(); return; }
+  const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()), wa = d.workArea;
+  qwin.setPosition(Math.round(wa.x + (wa.width - 660) / 2), Math.round(wa.y + wa.height * 0.26));
+  qwin.setAlwaysOnTop(true, 'screen-saver');
+  qwin.show(); qwin.focus();
+  qwin.webContents.send('q-show');
+}
+function registerHotkey() {
+  for (const k of ['Control+Space', 'Control+Alt+Space']) {
+    try { if (globalShortcut.register(k, toggleQuick)) { hotkey = k; break; } } catch (e) {}
+  }
+  if (hotkey && hotkey !== 'Control+Space') notify('Ctrl+Space зайнято іншою програмою: швидке додавання відкривається через ' + hotkey.replace('Control', 'Ctrl'));
+  if (!hotkey) notify('Не вдалося зареєструвати сполучення для швидкого додавання');
+}
+ipcMain.on('q-close', () => { if (qwin) qwin.hide(); });
+ipcMain.on('q-submit', (e, text) => {
+  if (qwin) qwin.hide();
+  if (!win || win.isDestroyed() || win.webContents.isLoading()) { notify('Календар ще не завантажився, спробуйте ще раз'); return; }
+  win.webContents.send('quick', String(text).slice(0, 500));
+});
+ipcMain.on('quick-result', (e, msg) => { if (msg) notify(msg); });
+
 function buildTray() {
   tray = new Tray(icon.resize({ width: 32, height: 32 }));
   tray.setToolTip('Календар планування');
   const menu = () => Menu.buildFromTemplate([
     { label: 'Відкрити', click: show },
+    { label: 'Швидке додавання задачі (Ctrl+Space)', click: toggleQuick },
     { label: 'Запускати разом з Windows', type: 'checkbox', checked: autostartOn(), click: (i) => {
         try { if (i.checked) fs.rmSync(flag, { force: true }); else fs.writeFileSync(flag, '1'); } catch (e) {}
         applyAutostart();
@@ -94,9 +134,13 @@ ipcMain.on('ring', (e, on) => {
 app.on('second-instance', show);
 app.whenReady().then(() => {
   powerSaveBlocker.start('prevent-app-suspension');
+  app.setAppUserModelId('ua.planner.desktop');
   applyAutostart();
   create(process.argv.includes('--hidden'));
   buildTray();
+  createQuick();
+  registerHotkey();
 });
+app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('before-quit', () => { quitting = true; });
 app.on('window-all-closed', () => {}); // не виходимо: живемо в треї

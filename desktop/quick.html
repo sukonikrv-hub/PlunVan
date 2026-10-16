@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+html,body{margin:0;height:100%;background:transparent;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-user-select:none}
+.bar{box-sizing:border-box;height:56px;margin:4px;display:flex;align-items:center;gap:12px;padding:0 12px;background:#26292e;border:1px solid #3a3e45;border-radius:14px;box-shadow:0 8px 28px #000a}
+.plus{flex:none;width:34px;height:34px;border-radius:8px;background:#3a3e45;color:#ddd;display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1}
+input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#f1f3f5;font-size:18px;caret-color:#7fb4ff;-webkit-user-select:text}
+input::placeholder{color:#8b9097}
+.x{flex:none;color:#9aa0a6;font-size:20px;cursor:pointer;padding:4px 8px}.x:hover{color:#fff}
+.go{flex:none;width:36px;height:36px;border-radius:9px;background:#2c6eaa;color:#fff;border:0;font-size:18px;cursor:pointer}.go:hover{background:#3a82c4}
+</style></head><body>
+<div class="bar"><div class="plus">＋</div><input id="t" placeholder="Нова задача: завтра о 15:00 дзвінок Іванові" autocomplete="off" spellcheck="false" autofocus><span class="x" id="x" title="Esc">✕</span><button class="go" id="go" title="Enter">↵</button></div>
+<script>
+const t=document.getElementById('t');
+const send=()=>{const v=t.value.trim();v?Q.submit(v):Q.close()};
+t.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();send()}else if(e.key==='Escape'){Q.close()}});
+document.getElementById('x').onclick=()=>Q.close();document.getElementById('go').onclick=send;
+Q.onShow(()=>{t.value='';t.focus()});
+</script></body></html>
