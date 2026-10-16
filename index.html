@@ -121,7 +121,7 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
  <label>Сигнал сповіщення</label><select id="sSn"><option value="alarm">Сирена (стандартна)<option value="beep">Звуковий сигнал<option value="bell">Дзвінок<option value="pulse">Імпульс<option value="custom">Власний сигнал</select>
  <div class="row"><button type="button" id="sPlay">▶ Прослухати</button><button type="button" id="sStop">■ Стоп</button></div>
  <label>Додати свій сигнал…</label><input id="sFile" type="file" accept="audio/*">
- <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v8</div>
+ <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v9</div>
  <label>Резервна копія</label><div class="row"><button type="button" id="bkE">⬇ Експорт</button><button type="button" id="bkI">⬆ Імпорт</button></div><input id="bkF" type="file" accept=".json" hidden>
  <div id="bgp" hidden><label>Фонові сповіщення (Android)</label><div id="bgs" style="font-size:13px;line-height:1.6"></div>
  <div class="row"><button type="button" id="bgT">🔔 Тест через 1 хв</button><button type="button" id="bgB">🔋 Батарея</button><button type="button" id="bgA">⚙ Застосунок</button></div>
@@ -321,12 +321,12 @@ addEventListener("keydown",e=>{if(e.key==="/"&&!/^(INPUT|TEXTAREA|SELECT)$/.test
 $("wp").onclick=()=>{wk=new Date(wk.getFullYear(),wk.getMonth(),wk.getDate()-7,12);render()};
 $("wn").onclick=()=>{wk=new Date(wk.getFullYear(),wk.getMonth(),wk.getDate()+7,12);render()};
 $("wt").onclick=()=>{wk=mondayOf(new Date());render()};
-async function useTpl(id){const x=tpls.find(t=>t.id===id);if(!x)return;
- const corpT=page==="cal"&&mode==="corp"&&ccol,c=corpT?ccol:col,now=new Date(),td=iso(now);
+function useTpl(id){const x=tpls.find(t=>t.id===id);if(!x)return;
+ const now=new Date(),td=iso(now);
  let date=page==="cal"?sel:td;if(date===td&&x.time&&x.time<=p(now.getHours())+":"+p(now.getMinutes()))date=iso(new Date(Date.now()+864e5));
- const nid=crypto.randomUUID();
- await W(setDoc(doc(c,nid),{title:x.title||x.name,date,time:x.time||"",rep:x.rep||"",prio:x.prio||"normal",desc:x.desc||"",done:false,series:nid,pre:x.pre||[],tags:x.tags||[],sub:(x.sub||[]).map(z=>({t:z.t,d:false})),asg:"",ak:Date.now()}));
- toast(tr("Додано")+": "+(x.title||x.name)+" — "+date.split("-").reverse().join("."))}
+ document.body.classList.remove("sbo");
+ openDlg(null,{title:x.title||x.name,date,time:x.time||"",rep:x.rep||"",prio:x.prio||"normal",desc:x.desc||"",pre:x.pre||[],tags:x.tags||[],sub:(x.sub||[]).map(z=>({t:z.t,d:false}))}) // шаблон відкриває редактор нової задачі
+}
 $("cal").onclick=e=>{const k=e.target.dataset.d;if(k){sel=k;render()}};
 const shift=n=>{cur=new Date(cur.getFullYear(),cur.getMonth()+n,1);render()};
 $("pm").onclick=()=>shift(-1);$("nm").onclick=()=>shift(1);$("td").onclick=()=>{cur=new Date();sel=iso(cur);render()};
@@ -348,9 +348,9 @@ $("sbAdd").onclick=addSub;$("sbIn").onkeydown=e=>{if(e.key==="Enter"){e.preventD
 $("sbL").onchange=e=>{const i=e.target.dataset.si;if(i!==undefined){subs[i].d=e.target.checked;renderSubs()}};
 $("sbL").onclick=e=>{const i=e.target.dataset.sx;if(i!==undefined){subs.splice(+i,1);renderSubs()}};
 $("fC").onchange=()=>{tcal=$("fC").value;fillAsg("")};
-function openDlg(id){const t0=allT().find(x=>x.id===id),nw=!id;
+function openDlg(id,tpl){const t0=allT().find(x=>x.id===id),nw=!id;
  tcal=t0?(t0.cp==="c"?t0.cal:"me"):(page==="cal"&&mode==="corp"&&cid?cid:"me");
- editId=id;const t=t0||{};$("fT").value=t.title||"";$("fD").value=t.date||sel;$("fH").value=t.time||"";
+ editId=id;const t=t0||tpl||{};$("fT").value=t.title||"";$("fD").value=t.date||sel;$("fH").value=t.time||"";
  $("fR").value=t.rep||"";$("fP").value=t.prio||"normal";$("fN").value=t.desc||"";$("fDel").hidden=!id;
  document.querySelectorAll("#fPre input").forEach(c=>c.checked=(t.pre||[]).includes(+c.value));
  $("fTg").value=tagsOf(t).join(", ");$("tgl").innerHTML=allTags().map(x=>`<option value="${esc(x)}">`).join("");
