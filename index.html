@@ -121,7 +121,7 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
  <label>Сигнал сповіщення</label><select id="sSn"><option value="alarm">Сирена (стандартна)<option value="beep">Звуковий сигнал<option value="bell">Дзвінок<option value="pulse">Імпульс<option value="custom">Власний сигнал</select>
  <div class="row"><button type="button" id="sPlay">▶ Прослухати</button><button type="button" id="sStop">■ Стоп</button></div>
  <label>Додати свій сигнал…</label><input id="sFile" type="file" accept="audio/*">
- <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v9</div>
+ <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v10</div>
  <label>Резервна копія</label><div class="row"><button type="button" id="bkE">⬇ Експорт</button><button type="button" id="bkI">⬆ Імпорт</button></div><input id="bkF" type="file" accept=".json" hidden>
  <div id="bgp" hidden><label>Фонові сповіщення (Android)</label><div id="bgs" style="font-size:13px;line-height:1.6"></div>
  <div class="row"><button type="button" id="bgT">🔔 Тест через 1 хв</button><button type="button" id="bgB">🔋 Батарея</button><button type="button" id="bgA">⚙ Застосунок</button></div>
@@ -477,11 +477,14 @@ function parseQuick(src){
  if(!title)return null;title=title[0].toUpperCase()+title.slice(1);
  if(!date)date=time?(new Date(D(0)+"T"+time+":00")>now?D(0):D(1)):sel;
  return {title,date,time,rep,prio}}
-function quickAdd(txt){const r=parseQuick(txt);if(!r){alert(tr("Не вдалося розпізнати задачу"));return}
- const c=curCol();if(!c)return alert(tr("Спершу створіть корпоративний календар"));
+function quickAdd(txt,forceCol){const r=parseQuick(txt);if(!r){alert(tr("Не вдалося розпізнати задачу"));return""}
+ const c=forceCol||curCol();if(!c){alert(tr("Спершу створіть корпоративний календар"));return""}
  const id=crypto.randomUUID();
- W(setDoc(doc(c,id),{title:r.title,date:r.date,time:r.time,rep:r.rep,prio:r.prio,desc:"",done:false,series:id,pre:[],asg:"",ak:Date.now()}));
- sel=r.date;cur=dt(r.date);$("qmsg").textContent="✓ "+r.title+" — "+r.date.split("-").reverse().join(".")+(r.time?" "+r.time:"");setTimeout(()=>{$("qmsg").textContent=""},6000);render()}
+ W(setDoc(doc(c,id),{title:r.title,date:r.date,time:r.time,rep:r.rep,prio:r.prio,desc:"",done:false,series:id,pre:[],tags:[],sub:[],asg:"",ak:Date.now()}));
+ const m="✓ "+r.title+" — "+r.date.split("-").reverse().join(".")+(r.time?" "+r.time:"");
+ sel=r.date;cur=dt(r.date);$("qmsg").textContent=m;setTimeout(()=>{$("qmsg").textContent=""},6000);render();return m}
+// програма для ПК: глобальне сполучення Ctrl+Space відкриває рядок швидкого додавання; задача йде в особистий календар
+if(window.Desk&&Desk.onQuick)Desk.onQuick(t=>{if(!auth.currentUser||!col)return"Спершу увійдіть у календар";sel=iso(new Date());return quickAdd(t,col)||"Не вдалося розпізнати задачу"});
 $("qb").onclick=()=>{const v=$("qa").value.trim();if(v){quickAdd(v);$("qa").value=""}};
 $("qa").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("qb").click()}};
 
