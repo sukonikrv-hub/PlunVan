@@ -23,15 +23,19 @@ class RingService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    private var payload = ""
+
     private fun openApp(): PendingIntent = PendingIntent.getActivity(
         this, 0,
-        Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent(this, AlarmActivity::class.java).putExtra("t", title).putExtra("j", payload)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (mp != null) return START_NOT_STICKY // вже дзвонить
         title = intent?.getStringExtra("t") ?: "Нагадування"
+        payload = intent?.getStringExtra("j") ?: ""
         val nm = getSystemService(NotificationManager::class.java)
         val ring = NotificationChannel("ring", "Нагадування (сирена)", NotificationManager.IMPORTANCE_HIGH)
         ring.setSound(null, null)

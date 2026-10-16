@@ -36,6 +36,40 @@ object Sync {
         return text
     }
 
+    /** Свіжий id-токен і базовий URL Firestore (для дій з екрана будильника). */
+    fun session(ctx: Context): Pair<String, String>? {
+        val sp = ctx.getSharedPreferences("p", 0)
+        val a = JSONObject(sp.getString("auth", null) ?: return null)
+        val tok = JSONObject(
+            call(
+                "https://securetoken.googleapis.com/v1/token?key=" + a.getString("k"), "POST",
+                "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(a.getString("r"), "UTF-8"),
+                null, "application/x-www-form-urlencoded"
+            )
+        )
+        val nr = tok.optString("refresh_token")
+        if (nr.isNotEmpty() && nr != a.getString("r")) {
+            a.put("r", nr)
+            sp.edit().putString("auth", a.toString()).apply()
+        }
+        return Pair(tok.getString("id_token"), "https://firestore.googleapis.com/v1/projects/" + a.getString("p") + "/databases/(default)/documents")
+    }
+
+    /** PATCH через POST + X-HTTP-Method-Override (надійно працює на всіх версіях Android). */
+    fun patch(url: String, body: String, token: String) {
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.requestMethod = "POST"
+        c.connectTimeout = 15000
+        c.readTimeout = 20000
+        c.setRequestProperty("Authorization", "Bearer $token")
+        c.setRequestProperty("X-HTTP-Method-Override", "PATCH")
+        c.setRequestProperty("Content-Type", "application/json")
+        c.doOutput = true
+        c.outputStream.use { it.write(body.toByteArray()) }
+        if (c.responseCode !in 200..299) throw RuntimeException("HTTP " + c.responseCode)
+        c.inputStream.close()
+    }
+
     private fun str(f: JSONObject, k: String): String = f.optJSONObject(k)?.optString("stringValue", "") ?: ""
 
     private fun lng(f: JSONObject, k: String): Long {
@@ -63,6 +97,8 @@ object Sync {
     /** Читає задачі (особисті й корпоративні) з Firestore і ставить будильники на телефоні. */
     fun run(ctx: Context) {
         val sp = ctx.getSharedPreferences("p", 0)
+        if (!sp.contains("auth")) return
+        try { QuickOps.flush(ctx) } catch (e: Exception) { }
         val a = JSONObject(sp.getString("auth", null) ?: return)
         val key = a.getString("k")
         val proj = a.getString("p")
@@ -85,6 +121,7 @@ object Sync {
         val now = System.currentTimeMillis()
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
         val found = ArrayList<Triple<Long, String, Int>>()
+        val extra = HashMap<String, JSONObject>()
 
         fun collect(url: String, prefix: String) {
             val docs = JSONObject(call(url, "GET", null, id, "")).optJSONArray("documents") ?: return
@@ -98,7 +135,14 @@ object Sync {
                 if (asg.isNotEmpty() && asg != uid) continue // задача призначена комусь іншому
                 val w = try { fmt.parse("$d $t")!!.time } catch (e: Exception) { continue }
                 val title = prefix + str(f, "title")
-                if (w > now) found.add(Triple(w, title, 0))
+                if (w > now) {
+                    found.add(Triple(w, title, 0))
+                    val nm = docs.getJSONObject(i).optString("name")
+                    val path = nm.substringAfter("/documents/")
+                    extra[w.toString() + title] = JSONObject().put("i", path)
+                        .put("r", if (str(f, "rep").isNotEmpty()) 1 else 0)
+                        .put("ot", str(f, "ot").ifEmpty { t }).put("od", str(f, "od").ifEmpty { d })
+                }
                 val ak = lng(f, "ak")
                 for (m in pres(f)) {
                     val e = w - m * 60_000L
@@ -119,6 +163,7 @@ object Sync {
         for (p in found.sortedBy { it.first }.take(60)) {
             val o = JSONObject().put("t", p.second).put("w", p.first)
             if (p.third == 1) o.put("p", 1)
+            else extra[p.first.toString() + p.second]?.let { x -> for (k in x.keys()) o.put(k, x.get(k)) }
             out.put(o)
         }
         Alarms.schedule(ctx, out.toString())

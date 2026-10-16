@@ -130,6 +130,7 @@ class Bridge(private val ctx: Context) {
             val sp = ctx.getSharedPreferences("p", 0)
             JSONObject()
                 .put("notif", nm.areNotificationsEnabled())
+                .put("full", if (Build.VERSION.SDK_INT >= 34) nm.canUseFullScreenIntent() else true)
                 .put("battery", pm.isIgnoringBatteryOptimizations(ctx.packageName))
                 .put("alarms", sp.getInt("n", 0))
                 .put("auth", sp.contains("auth"))
@@ -142,6 +143,18 @@ class Bridge(private val ctx: Context) {
         try {
             ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (e: Exception) { }
+    }
+
+    @JavascriptInterface
+    fun openFullScreen() {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                ctx.startActivity(
+                    Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + ctx.packageName))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } else openAppSettings()
+        } catch (e: Exception) { openAppSettings() }
     }
 
     @JavascriptInterface

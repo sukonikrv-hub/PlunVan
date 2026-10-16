@@ -13,9 +13,9 @@ import android.media.RingtoneManager
 import org.json.JSONArray
 
 object Alarms {
-    private fun pi(c: Context, code: Int, title: String, pre: Boolean = false): PendingIntent =
+    private fun pi(c: Context, code: Int, title: String, pre: Boolean = false, j: String = ""): PendingIntent =
         PendingIntent.getBroadcast(
-            c, code, Intent(c, AlarmReceiver::class.java).putExtra("t", title).putExtra("p", pre),
+            c, code, Intent(c, AlarmReceiver::class.java).putExtra("t", title).putExtra("p", pre).putExtra("j", j),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -36,7 +36,7 @@ object Alarms {
             val o = arr.getJSONObject(k)
             val w = o.getLong("w")
             if (w <= now) continue
-            am.setAlarmClock(AlarmManager.AlarmClockInfo(w, show), pi(c, n, o.getString("t"), o.optInt("p", 0) == 1))
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(w, show), pi(c, n, o.getString("t"), o.optInt("p", 0) == 1, o.toString()))
             n++
         }
         sp.edit().putString("list", json).putInt("n", n).apply()
@@ -89,7 +89,7 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
         try {
-            c.startForegroundService(Intent(c, RingService::class.java).putExtra("t", t))
+            c.startForegroundService(Intent(c, RingService::class.java).putExtra("t", t).putExtra("j", i.getStringExtra("j") ?: ""))
         } catch (e: Exception) {
             Notify.fallback(c, t) // сирену запустити не вдалося: хоча б сповіщення в шторці
         }
