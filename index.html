@@ -124,7 +124,7 @@ input,select,textarea,dialog,#alarm .box{background:var(--card);color:var(--tx)}
  <div style="font-size:12px;color:#8a949c;margin-top:10px">Версія сайту: 2026-10-16 · v11</div>
  <label>Резервна копія</label><div class="row"><button type="button" id="bkE">⬇ Експорт</button><button type="button" id="bkI">⬆ Імпорт</button></div><input id="bkF" type="file" accept=".json" hidden>
  <div id="bgp" hidden><label>Фонові сповіщення (Android)</label><div id="bgs" style="font-size:13px;line-height:1.6"></div>
- <div class="row"><button type="button" id="bgT">🔔 Тест через 1 хв</button><button type="button" id="bgB">🔋 Батарея</button><button type="button" id="bgA">⚙ Застосунок</button></div>
+ <div class="row"><button type="button" id="bgT">🔔 Тест через 1 хв</button><button type="button" id="bgB">🔋 Батарея</button><button type="button" id="bgA">⚙ Застосунок</button><button type="button" id="bgF">📲 Екран блокування</button></div>
  <div style="font-size:12px;color:#8a949c;margin-top:6px">Натисніть «Тест», повністю закрийте застосунок і зачекайте хвилину: має зазвучати сирена.</div></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
 <dialog id="cdlg"><form method="dialog"><h3 id="cq" style="margin-top:0"></h3><div class="row"><button class="pri" value="ok">OK</button><button value="no">Скасувати</button></div></form></dialog>
 <dialog id="pdlg"><form method="dialog"><h3 id="pq" style="margin-top:0"></h3><input id="pv" style="width:100%"><div class="row"><button class="pri" value="ok">OK</button><button type="button" id="pc">Скасувати</button></div></form></dialog>
@@ -200,7 +200,7 @@ $("bfp").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").textCon
  try{await sendPasswordResetEmail(auth,e);$("lerr").textContent="";alert(tr("Лист для скидання пароля надіслано на")+" "+e)}catch(x){$("lerr").textContent=tr("Помилка")+": "+(x.code||x.message)}};
 const pushAlarms=()=>{if(!window.Android)return;try{const now=Date.now(),L=[];
  for(const t of allT()){if(t.done||!t.time||!mine(t))continue;const due=ts(t);if(isNaN(due))continue;const ti=(t.cp==="c"?"🏢 ":"")+t.title;
-  for(const m of [0,...(t.pre||[])]){const w=due-m*6e4;if(w>now&&(m===0||w>(t.ak||0)))L.push(m?{t:tr("Через")+" "+lbl(m)+": "+ti,w,p:1}:{t:ti,w})}}
+  for(const m of [0,...(t.pre||[])]){const w=due-m*6e4;if(w>now&&(m===0||w>(t.ak||0)))L.push(m?{t:tr("Через")+" "+lbl(m)+": "+ti,w,p:1}:Object.assign({t:ti,w},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id,r:t.rep?1:0,ot:t.ot||t.time,od:t.od||t.date}:{}))}}
  Android.setAlarms(JSON.stringify(L.sort((a,b)=>a.w-b.w).slice(0,60)))}catch(e){}};
 const sync=()=>{tasks=tasksFor(mode);render();tick();ui();pushAlarms();if($("dlg").open)renderCm()};
 const allT=()=>tasksMe.concat(tasksCorp),colOf=t=>t.cp==="c"?(calById(t.cal)||{}).col:col,curCol=()=>mode==="corp"?ccol:col;
@@ -234,7 +234,7 @@ $("mbody").onclick=async e=>{const i=e.target.id,rm=e.target.dataset.rm,r=doc(db
 $("bset").onclick=()=>{$("sTh").value=pref("theme")||"light";$("sLg").value=LANG;$("sSn").value=pref("snd")||"alarm";$("sdlg").showModal()};
 $("sTh").onchange=e=>{pref("theme",e.target.value);document.documentElement.dataset.theme=e.target.value};
 $("sLg").onchange=e=>{pref("lang",e.target.value);location.reload()};
-onAuthStateChanged(auth,u=>{try{if(window.Android)Android.setAuth(u?JSON.stringify({k:cfg.apiKey,p:cfg.projectId,u:u.uid,r:u.refreshToken}):"")}catch(e){}unsub&&unsub();unsubC&&unsubC();dropCals();unsub=unsubC=unsubK=null;$("login").hidden=!!u;$("app").hidden=!u;
+onAuthStateChanged(auth,u=>{try{if(window.Android)Android.setAuth(u?JSON.stringify({k:cfg.apiKey,p:cfg.projectId,u:u.uid,r:u.refreshToken,e:u.email||""}):"")}catch(e){}unsub&&unsub();unsubC&&unsubC();dropCals();unsub=unsubC=unsubK=null;$("login").hidden=!!u;$("app").hidden=!u;
  if(u){col=collection(db,"users",u.uid,"tasks");
   unsub=onSnapshot(col,s=>{const a=s.docs.map(d=>({id:d.id,cp:"m",...d.data()}));tpls=a.filter(x=>x.tpl);tasksMe=a.filter(x=>!x.tpl);sync()}); // шаблони лежать поруч із задачами (без дати, тому дзвінків не дають)
   unsubC=onSnapshot(query(collection(db,"calendars"),where("members","array-contains",u.uid)),s=>{
@@ -451,10 +451,10 @@ $("alarm").onclick=e=>{const d=e.target.dataset;
  if(d.ak){const x=allT().find(t=>t.id===d.ak);if(x)W(setDoc(doc(colOf(x),x.id),{ak:Date.now()},{merge:true}))}
  if(d.ok){const x=allT().find(t=>t.id===d.ok);if(x)setDone(x,true)}};
 if(window.Android){$("bgp").hidden=false;
- const st=()=>{try{const x=JSON.parse(Android.status());$("bgs").innerHTML=[["Сповіщення дозволені",x.notif],["Батарея без обмежень",x.battery],["Дані входу для синхронізації",x.auth]].map(([l,v])=>(v?"✅ ":"❌ ")+l).join("<br>")+"<br>⏰ Запланованих будильників: "+x.alarms}catch(e){}};
+ const st=()=>{try{const x=JSON.parse(Android.status());$("bgs").innerHTML=[["Сповіщення дозволені",x.notif],["Батарея без обмежень",x.battery],["Екран будильника на заблокованому екрані",x.full!==false],["Дані входу для синхронізації",x.auth]].map(([l,v])=>(v?"✅ ":"❌ ")+l).join("<br>")+"<br>⏰ Запланованих будильників: "+x.alarms}catch(e){}};
  $("bset").addEventListener("click",()=>setTimeout(st,60));
  $("bgT").onclick=()=>{try{Android.testAlarm();alert("Тест заплановано через 1 хвилину. Закрийте застосунок повністю.")}catch(e){}};
- $("bgB").onclick=()=>{try{Android.openBattery()}catch(e){}};$("bgA").onclick=()=>{try{Android.openAppSettings()}catch(e){}}}
+ $("bgB").onclick=()=>{try{Android.openBattery()}catch(e){}};$("bgA").onclick=()=>{try{Android.openAppSettings()}catch(e){}};$("bgF").onclick=()=>{try{Android.openFullScreen()}catch(e){}}}
 /* ---- швидке додавання: «завтра о 15:00 дзвінок Іванові» ---- */
 function parseQuick(src){
  let t=" "+src.replace(/[,;]+/g," ").replace(/\s+/g," ")+" ",rep="",prio="normal",date="",time="";
