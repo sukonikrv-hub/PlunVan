@@ -125,6 +125,8 @@ object Sync {
         val found = ArrayList<Triple<Long, String, Int>>()
         val extra = HashMap<String, JSONObject>()
         val myEmail = a.optString("e")
+        val defT = sp.getString("defT", "") ?: ""
+        val todayS = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
         val cn = sp.getLong("cn", -1L)
         val changes = ArrayList<Chg>()
 
@@ -141,7 +143,7 @@ object Sync {
                 if (viewer) continue // роль «лише перегляд»: без нагадувань
                 if (f.optJSONObject("done")?.optBoolean("booleanValue", false) == true) continue
                 val d = str(f, "date")
-                val t = str(f, "time")
+                val t = str(f, "time").ifEmpty { if (d >= todayS) defT else "" } // задачі без часу: час із налаштувань
                 if (d.isEmpty() || t.isEmpty()) continue
                 val asg = str(f, "asg")
                 if (asg.isNotEmpty() && asg != uid) continue // задача призначена комусь іншому
@@ -153,6 +155,7 @@ object Sync {
                     val path = nm.substringAfter("/documents/")
                     extra[w.toString() + title] = JSONObject().put("i", path)
                         .put("r", if (str(f, "rep").isNotEmpty()) 1 else 0)
+                        .put("pr", str(f, "prio").ifEmpty { "normal" })
                         .put("ot", str(f, "ot").ifEmpty { t }).put("od", str(f, "od").ifEmpty { d })
                 }
                 val ak = lng(f, "ak")

@@ -92,6 +92,39 @@ class Bridge(private val ctx: Context) {
         try { Alarms.schedule(ctx, json) } catch (e: Exception) { }
     }
 
+    // Те саме, але з пріоритетом задачі: від нього залежить, який сигнал грати
+    @JavascriptInterface
+    fun setRingingP(on: Boolean, pr: String) {
+        val i = Intent(ctx, RingService::class.java)
+        try {
+            if (on) ctx.startForegroundService(i.putExtra("t", "Нагадування").putExtra("j", JSONObject().put("pr", pr).toString()))
+            else ctx.stopService(i)
+        } catch (e: Exception) { }
+    }
+
+    // Час нагадування для задач без часу (налаштування на сайті)
+    @JavascriptInterface
+    fun setDefT(t: String) {
+        try { ctx.getSharedPreferences("p", 0).edit().putString("defT", t).apply() } catch (e: Exception) { }
+    }
+
+    // Окремі сигнали для пріоритетів: low / normal / high; порожній рядок = грати загальний сигнал
+    @JavascriptInterface
+    fun setSoundP(pr: String, dataUrl: String) {
+        try {
+            if (pr != "low" && pr != "normal" && pr != "high") return
+            val f = File(ctx.filesDir, "alarm_$pr.bin")
+            val sp = ctx.getSharedPreferences("p", 0)
+            if (dataUrl.isEmpty()) {
+                f.delete(); sp.edit().remove("sh_$pr").apply(); return
+            }
+            val h = dataUrl.hashCode().toString() + "_" + dataUrl.length
+            if (sp.getString("sh_$pr", "") == h && f.exists()) return
+            f.writeBytes(Base64.decode(dataUrl.substringAfter(","), Base64.DEFAULT))
+            sp.edit().putString("sh_$pr", h).apply()
+        } catch (e: Exception) { }
+    }
+
     @JavascriptInterface
     fun setRinging(on: Boolean) {
         val i = Intent(ctx, RingService::class.java)

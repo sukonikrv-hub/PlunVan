@@ -58,11 +58,18 @@ class RingService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val custom = File(filesDir, "alarm.bin")
+        val pr = try { org.json.JSONObject(payload).optString("pr") } catch (e: Exception) { "" }
+        val byPr = File(filesDir, "alarm_$pr.bin")
+        val general = File(filesDir, "alarm.bin")
+        val file: File? = when {
+            pr.isNotEmpty() && byPr.exists() && byPr.length() > 0 -> byPr // сигнал для цього пріоритету
+            general.exists() && general.length() > 0 -> general
+            else -> null
+        }
         mp = try {
-            player(custom.exists() && custom.length() > 0).also { it.start() }
+            player(file).also { it.start() }
         } catch (e: Exception) {
-            try { player(false).also { it.start() } } catch (x: Exception) { null }
+            try { player(null).also { it.start() } } catch (x: Exception) { null }
         }
         // Якщо ніхто не відреагував 10 хв: вимикаємо звук, але сповіщення ЛИШАЄТЬСЯ в шторці
         val r = Runnable { postMissed(); stopSelf() }
@@ -83,14 +90,14 @@ class RingService : Service() {
         nm.notify(2, n)
     }
 
-    private fun player(custom: Boolean): MediaPlayer {
+    private fun player(file: File?): MediaPlayer {
         val p = MediaPlayer()
         p.setAudioAttributes(
             AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
         )
-        if (custom) {
-            p.setDataSource(File(filesDir, "alarm.bin").absolutePath)
+        if (file != null) {
+            p.setDataSource(file.absolutePath)
         } else {
             val afd = resources.openRawResourceFd(R.raw.alarm)
             p.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
