@@ -12,9 +12,15 @@ let win = null, qwin = null, tray = null, quitting = false, ringing = false, hot
 const icon = nativeImage.createFromPath(path.join(__dirname, 'icon.png'));
 const flag = path.join(app.getPath('userData'), 'noautostart');
 
+const hflag = path.join(app.getPath('userData'), 'hiddenstart'); // є файл: при вході в Windows сидіти лише в треї
+// Portable-збірка розпаковується у тимчасову папку, тому в автозапуск треба писати шлях до самого .exe, а не execPath
+const exePath = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+
 function autostartOn() { return !fs.existsSync(flag); }
 function applyAutostart() {
-  try { app.setLoginItemSettings({ openAtLogin: autostartOn(), args: ['--hidden'] }); } catch (e) {}
+  try {
+    app.setLoginItemSettings({ openAtLogin: autostartOn(), path: exePath, args: fs.existsSync(hflag) ? ['--hidden'] : [] });
+  } catch (e) {}
 }
 
 function show() {
@@ -103,6 +109,10 @@ function buildTray() {
     { label: 'Швидке додавання задачі (Ctrl+Space)', click: toggleQuick },
     { label: 'Запускати разом з Windows', type: 'checkbox', checked: autostartOn(), click: (i) => {
         try { if (i.checked) fs.rmSync(flag, { force: true }); else fs.writeFileSync(flag, '1'); } catch (e) {}
+        applyAutostart();
+      } },
+    { label: 'При запуску Windows ховати в трей', type: 'checkbox', checked: fs.existsSync(hflag), click: (i) => {
+        try { if (i.checked) fs.writeFileSync(hflag, '1'); else fs.rmSync(hflag, { force: true }); } catch (e) {}
         applyAutostart();
       } },
     { type: 'separator' },
