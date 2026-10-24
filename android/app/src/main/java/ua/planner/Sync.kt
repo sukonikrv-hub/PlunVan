@@ -18,6 +18,8 @@ import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+class Chg(val et: Long, val eb: String, val ev: String, val title: String, val cal: String)
+
 object Sync {
     private fun call(url: String, method: String, body: String?, token: String?, ctype: String): String {
         val c = URL(url).openConnection() as HttpURLConnection
@@ -122,11 +124,21 @@ object Sync {
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
         val found = ArrayList<Triple<Long, String, Int>>()
         val extra = HashMap<String, JSONObject>()
+        val myEmail = a.optString("e")
+        val cn = sp.getLong("cn", -1L)
+        val changes = ArrayList<Chg>()
 
-        fun collect(url: String, prefix: String) {
+        fun collect(url: String, prefix: String, viewer: Boolean = false, calName: String = "") {
             val docs = JSONObject(call(url, "GET", null, id, "")).optJSONArray("documents") ?: return
             for (i in 0 until docs.length()) {
                 val f = docs.getJSONObject(i).optJSONObject("fields") ?: continue
+                val eb = str(f, "eb")
+                val et = lng(f, "et")
+                val ev = str(f, "ev")
+                if (calName.isNotEmpty() && eb.isNotEmpty() && myEmail.isNotEmpty() && eb != myEmail && et > cn && ev != "rep")
+                    changes.add(Chg(et, eb, ev, str(f, "title"), calName))
+                if (f.has("del")) continue // у кошику
+                if (viewer) continue // роль «лише перегляд»: без нагадувань
                 if (f.optJSONObject("done")?.optBoolean("booleanValue", false) == true) continue
                 val d = str(f, "date")
                 val t = str(f, "time")
@@ -156,8 +168,23 @@ object Sync {
             "{\"field\":{\"fieldPath\":\"members\"},\"op\":\"ARRAY_CONTAINS\",\"value\":{\"stringValue\":\"$uid\"}}}}}"
         val cals = JSONArray(call("$base:runQuery", "POST", q, id, "application/json"))
         for (i in 0 until cals.length()) {
-            val n = cals.getJSONObject(i).optJSONObject("document")?.optString("name") ?: continue
-            collect("https://firestore.googleapis.com/v1/$n/tasks?pageSize=300", "\uD83C\uDFE2 ")
+            val cd = cals.getJSONObject(i).optJSONObject("document") ?: continue
+            val n = cd.optString("name")
+            if (n.isEmpty()) continue
+            val cf = cd.optJSONObject("fields")
+            val role = cf?.optJSONObject("roles")?.optJSONObject("mapValue")?.optJSONObject("fields")
+                ?.optJSONObject(uid)?.optString("stringValue", "") ?: ""
+            val viewer = (cf?.let { str(it, "owner") } ?: "") != uid && role == "v"
+            collect(
+                "https://firestore.googleapis.com/v1/$n/tasks?pageSize=300", "\uD83C\uDFE2 ",
+                viewer, (cf?.let { str(it, "name") } ?: "").ifEmpty { "Календар" }
+            )
+        }
+        if (cn < 0) {
+            sp.edit().putLong("cn", now).apply() // перший запуск: старі зміни не повідомляємо
+        } else if (changes.isNotEmpty()) {
+            if (!Quiet.isQuiet(ctx, now)) Notify.changes(ctx, changes.sortedBy { it.et })
+            sp.edit().putLong("cn", maxOf(cn, changes.maxOf { it.et })).apply()
         }
         val out = JSONArray()
         for (p in found.sortedBy { it.first }.take(60)) {

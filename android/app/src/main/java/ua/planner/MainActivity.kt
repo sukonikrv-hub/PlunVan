@@ -145,6 +145,16 @@ class Bridge(private val ctx: Context) {
         } catch (e: Exception) { }
     }
 
+    // Тихі години / «Не турбувати»: зберігаємо й перепланувуємо будильники
+    @JavascriptInterface
+    fun setQuiet(json: String) {
+        try {
+            val sp = ctx.getSharedPreferences("p", 0)
+            sp.edit().putString("quiet", json).apply()
+            Alarms.schedule(ctx, sp.getString("list", "[]") ?: "[]")
+        } catch (e: Exception) { }
+    }
+
     @JavascriptInterface
     fun openFullScreen() {
         try {

@@ -26,6 +26,12 @@ object QuickOps {
             f.put("ak", JSONObject().put("integerValue", op.getLong("ak").toString()))
             names.addAll(listOf("date", "time", "sn", "ot", "od", "ak"))
         }
+        if (op.getString("i").startsWith("calendars/")) { // автор і час зміни для стрічки «Що нового»
+            val e = op.optString("e")
+            if (e.isNotEmpty()) { f.put("eb", JSONObject().put("stringValue", e)); names.add("eb") }
+            f.put("et", JSONObject().put("integerValue", System.currentTimeMillis().toString())); names.add("et")
+            f.put("ev", JSONObject().put("stringValue", if (op.getString("k") == "done") "done" else "snz")); names.add("ev")
+        }
         return Pair(f, names)
     }
 
@@ -75,7 +81,7 @@ object QuickOps {
     fun snooze(ctx: Context, path: String, min: Int, j: JSONObject) {
         val at = System.currentTimeMillis() + min * 60_000L
         val s = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(at)
-        val op = JSONObject().put("k", "snooze").put("i", path)
+        val op = JSONObject().put("k", "snooze").put("i", path).put("e", email(ctx))
             .put("d", s.substring(0, 10)).put("m", s.substring(11))
             .put("ot", j.optString("ot")).put("od", j.optString("od"))
             .put("ak", System.currentTimeMillis())
