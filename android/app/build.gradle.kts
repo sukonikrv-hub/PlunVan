@@ -14,6 +14,18 @@ android {
         val site = (project.findProperty("siteUrl") as String?) ?: "https://example.com/"
         buildConfigField("String", "SITE_URL", "\"$site\"")
     }
+    val ksFile = project.findProperty("ksFile") as String?
+    if (ksFile != null && file(ksFile).exists()) {
+        signingConfigs {
+            create("stable") {
+                storeFile = file(ksFile)
+                storePassword = project.findProperty("ksPass") as String?
+                keyAlias = project.findProperty("keyAlias") as String?
+                keyPassword = project.findProperty("keyPass") as String?
+            }
+        }
+        buildTypes { getByName("debug") { signingConfig = signingConfigs.getByName("stable") } }
+    }
     buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

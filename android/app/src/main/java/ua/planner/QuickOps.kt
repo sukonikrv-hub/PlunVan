@@ -26,6 +26,7 @@ object QuickOps {
             f.put("ak", JSONObject().put("integerValue", op.getLong("ak").toString()))
             names.addAll(listOf("date", "time", "sn", "ot", "od", "ak"))
         }
+        f.put("ut", JSONObject().put("integerValue", System.currentTimeMillis().toString())); names.add("ut") // для інкрементальної синхронізації
         if (op.getString("i").startsWith("calendars/")) { // автор і час зміни для стрічки «Що нового»
             val e = op.optString("e")
             if (e.isNotEmpty()) { f.put("eb", JSONObject().put("stringValue", e)); names.add("eb") }

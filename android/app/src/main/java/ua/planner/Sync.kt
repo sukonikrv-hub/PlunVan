@@ -26,6 +26,7 @@ object Sync {
         c.requestMethod = method
         c.connectTimeout = 15000
         c.readTimeout = 20000
+        c.setRequestProperty("Referer", BuildConfig.SITE_URL) // ключ Firebase обмежено за сайтом
         if (token != null) c.setRequestProperty("Authorization", "Bearer $token")
         if (body != null) {
             c.doOutput = true
@@ -63,6 +64,7 @@ object Sync {
         c.requestMethod = "POST"
         c.connectTimeout = 15000
         c.readTimeout = 20000
+        c.setRequestProperty("Referer", BuildConfig.SITE_URL)
         c.setRequestProperty("Authorization", "Bearer $token")
         c.setRequestProperty("X-HTTP-Method-Override", "PATCH")
         c.setRequestProperty("Content-Type", "application/json")
@@ -96,93 +98,74 @@ object Sync {
         else -> "$m хв"
     }
 
-    /** Читає задачі (особисті й корпоративні) з Firestore і ставить будильники на телефоні. */
+    private const val FULL_EVERY = 6 * 60 * 60 * 1000L // повне перечитування раз на 6 год, між ними лише зміни
+    private const val OVERLAP = 120_000L // запас на різницю годинників пристроїв
+
+    private class Src(val key: String, val parent: String, val name: String, val viewer: Boolean)
+
+    /** Стискає документ Firestore у короткий запис для локального кешу. */
+    private fun compact(doc: JSONObject): JSONObject? {
+        val f = doc.optJSONObject("fields") ?: return null
+        val o = JSONObject()
+        o.put("i", doc.optString("name").substringAfter("/documents/"))
+        o.put("d", str(f, "date")).put("t", str(f, "time")).put("ti", str(f, "title"))
+        o.put("pr", str(f, "prio").ifEmpty { "normal" })
+        o.put("dn", f.optJSONObject("done")?.optBoolean("booleanValue", false) == true)
+        o.put("asg", str(f, "asg")).put("rep", if (str(f, "rep").isNotEmpty()) 1 else 0)
+        o.put("ot", str(f, "ot")).put("od", str(f, "od")).put("ak", lng(f, "ak"))
+        val pa = JSONArray()
+        for (m in pres(f)) pa.put(m)
+        o.put("pre", pa)
+        o.put("eb", str(f, "eb")).put("et", lng(f, "et")).put("ev", str(f, "ev")).put("ut", lng(f, "ut"))
+        o.put("del", f.has("del")).put("tpl", f.has("tpl"))
+        return o
+    }
+
+    private fun cacheFile(ctx: Context) = java.io.File(ctx.filesDir, "sync_cache.json")
+
+    private fun loadCache(ctx: Context, uid: String): JSONObject {
+        try {
+            val f = cacheFile(ctx)
+            if (f.exists()) {
+                val j = JSONObject(f.readText())
+                if (j.optString("uid") == uid) return j
+            }
+        } catch (e: Exception) { }
+        return JSONObject().put("uid", uid).put("full", 0L).put("last", JSONObject()).put("docs", JSONObject())
+    }
+
+    fun clearCache(ctx: Context) {
+        try { cacheFile(ctx).delete() } catch (e: Exception) { }
+    }
+
+    private fun sinceQuery(since: Long) =
+        "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"tasks\"}],\"where\":{\"fieldFilter\":" +
+            "{\"field\":{\"fieldPath\":\"ut\"},\"op\":\"GREATER_THAN\",\"value\":{\"integerValue\":\"$since\"}}}}}"
+
+    /**
+     * Читає задачі й ставить будильники. Щоб не вичерпати безкоштовні ліміти Firestore, повністю все
+     * перечитується раз на 6 год, а між цим запитуються лише задачі, змінені після останньої синхронізації (поле ut).
+     */
     fun run(ctx: Context) {
         val sp = ctx.getSharedPreferences("p", 0)
         if (!sp.contains("auth")) return
         try { QuickOps.flush(ctx) } catch (e: Exception) { }
         val a = JSONObject(sp.getString("auth", null) ?: return)
-        val key = a.getString("k")
-        val proj = a.getString("p")
         val uid = a.getString("u")
-        val refresh = a.getString("r")
-        val tok = JSONObject(
-            call(
-                "https://securetoken.googleapis.com/v1/token?key=$key", "POST",
-                "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(refresh, "UTF-8"),
-                null, "application/x-www-form-urlencoded"
-            )
-        )
-        val id = tok.getString("id_token")
-        val newRefresh = tok.optString("refresh_token")
-        if (newRefresh.isNotEmpty() && newRefresh != refresh) {
-            a.put("r", newRefresh)
-            sp.edit().putString("auth", a.toString()).apply()
-        }
-        val base = "https://firestore.googleapis.com/v1/projects/$proj/databases/(default)/documents"
-        val now = System.currentTimeMillis()
-        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-        val found = ArrayList<Triple<Long, String, Int>>()
-        val extra = HashMap<String, JSONObject>()
         val myEmail = a.optString("e")
-        val defT = sp.getString("defT", "") ?: ""
-        val todayS = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
-        val cn = sp.getLong("cn", -1L)
-        val changes = ArrayList<Chg>()
-        val wl = JSONArray()
-        val wFrom = java.time.LocalDate.now().minusDays(60).toString()
-        val wTo = java.time.LocalDate.now().plusDays(120).toString()
+        val (id, base) = session(ctx) ?: return
+        val now = System.currentTimeMillis()
+        val cache = loadCache(ctx, uid)
+        val docs = cache.getJSONObject("docs")
+        val last = cache.getJSONObject("last")
+        val full = cache.optLong("full", 0L) == 0L || now - cache.optLong("full", 0L) > FULL_EVERY
 
-        fun collect(url: String, prefix: String, viewer: Boolean = false, calName: String = "") {
-            val docs = JSONObject(call(url, "GET", null, id, "")).optJSONArray("documents") ?: return
-            for (i in 0 until docs.length()) {
-                val f = docs.getJSONObject(i).optJSONObject("fields") ?: continue
-                val eb = str(f, "eb")
-                val et = lng(f, "et")
-                val ev = str(f, "ev")
-                if (calName.isNotEmpty() && eb.isNotEmpty() && myEmail.isNotEmpty() && eb != myEmail && et > cn && ev != "rep")
-                    changes.add(Chg(et, eb, ev, str(f, "title"), calName))
-                if (f.has("del")) continue // у кошику
-                // дані для віджетів (усі задачі навколо сьогодні, включно з виконаними)
-                val wd = str(f, "date")
-                val wa = str(f, "asg")
-                if (wd >= wFrom && wd <= wTo && (wa.isEmpty() || wa == uid) && wl.length() < 700)
-                    wl.put(
-                        JSONObject().put("d", wd).put("t", str(f, "time")).put("ti", str(f, "title"))
-                            .put("pr", str(f, "prio").ifEmpty { "normal" })
-                            .put("dn", f.optJSONObject("done")?.optBoolean("booleanValue", false) == true)
-                            .put("c", calName)
-                    )
-                if (viewer) continue // роль «лише перегляд»: без нагадувань
-                if (f.optJSONObject("done")?.optBoolean("booleanValue", false) == true) continue
-                val d = str(f, "date")
-                val t = str(f, "time").ifEmpty { if (d >= todayS) defT else "" } // задачі без часу: час із налаштувань
-                if (d.isEmpty() || t.isEmpty()) continue
-                val asg = str(f, "asg")
-                if (asg.isNotEmpty() && asg != uid) continue // задача призначена комусь іншому
-                val w = try { fmt.parse("$d $t")!!.time } catch (e: Exception) { continue }
-                val title = prefix + str(f, "title")
-                if (w > now) {
-                    found.add(Triple(w, title, 0))
-                    val nm = docs.getJSONObject(i).optString("name")
-                    val path = nm.substringAfter("/documents/")
-                    extra[w.toString() + title] = JSONObject().put("i", path)
-                        .put("r", if (str(f, "rep").isNotEmpty()) 1 else 0)
-                        .put("pr", str(f, "prio").ifEmpty { "normal" })
-                        .put("ot", str(f, "ot").ifEmpty { t }).put("od", str(f, "od").ifEmpty { d })
-                }
-                val ak = lng(f, "ak")
-                for (m in pres(f)) {
-                    val e = w - m * 60_000L
-                    if (e > now && e > ak) found.add(Triple(e, "Через ${label(m)}: $title", 1))
-                }
-            }
-        }
-
-        collect("$base/users/$uid/tasks?pageSize=300", "")
+        // календарі, у яких я є (їх мало, тому читаємо щоразу)
         val q = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"calendars\"}],\"where\":{\"fieldFilter\":" +
             "{\"field\":{\"fieldPath\":\"members\"},\"op\":\"ARRAY_CONTAINS\",\"value\":{\"stringValue\":\"$uid\"}}}}}"
         val cals = JSONArray(call("$base:runQuery", "POST", q, id, "application/json"))
+        val srcs = ArrayList<Src>()
+        srcs.add(Src("u", "$base/users/$uid", "", false))
         for (i in 0 until cals.length()) {
             val cd = cals.getJSONObject(i).optJSONObject("document") ?: continue
             val n = cd.optString("name")
@@ -190,11 +173,60 @@ object Sync {
             val cf = cd.optJSONObject("fields")
             val role = cf?.optJSONObject("roles")?.optJSONObject("mapValue")?.optJSONObject("fields")
                 ?.optJSONObject(uid)?.optString("stringValue", "") ?: ""
-            val viewer = (cf?.let { str(it, "owner") } ?: "") != uid && role == "v"
-            collect(
-                "https://firestore.googleapis.com/v1/$n/tasks?pageSize=300", "\uD83C\uDFE2 ",
-                viewer, (cf?.let { str(it, "name") } ?: "").ifEmpty { "Календар" }
-            )
+            val owner = cf?.let { str(it, "owner") } ?: ""
+            srcs.add(Src(n.substringAfterLast("/"), "https://firestore.googleapis.com/v1/$n", (cf?.let { str(it, "name") } ?: "").ifEmpty { "Календар" }, owner != uid && role == "v"))
+        }
+
+        // прибираємо з кешу календарі, яких більше немає
+        val keys = srcs.map { it.key }.toSet()
+        val del = ArrayList<String>()
+        for (k in docs.keys()) if (!keys.contains(docs.getJSONObject(k).optString("s"))) del.add(k)
+        for (k in del) docs.remove(k)
+
+        val fresh = ArrayList<Pair<JSONObject, Src>>()
+        for (s in srcs) {
+            val list = ArrayList<JSONObject>()
+            if (full) {
+                var tok: String? = null
+                do {
+                    val url = s.parent + "/tasks?pageSize=300" + (tok?.let { "&pageToken=" + URLEncoder.encode(it, "UTF-8") } ?: "")
+                    val r = JSONObject(call(url, "GET", null, id, ""))
+                    val arr = r.optJSONArray("documents")
+                    if (arr != null) for (i in 0 until arr.length()) compact(arr.getJSONObject(i))?.let { list.add(it) }
+                    tok = r.optString("nextPageToken").ifEmpty { null }
+                } while (tok != null)
+                val gone = ArrayList<String>()
+                for (k in docs.keys()) if (docs.getJSONObject(k).optString("s") == s.key) gone.add(k)
+                for (k in gone) docs.remove(k)
+            } else {
+                val since = last.optLong(s.key, 0L) - OVERLAP
+                val res = JSONArray(call(s.parent + ":runQuery", "POST", sinceQuery(since), id, "application/json"))
+                for (i in 0 until res.length()) {
+                    val d = res.getJSONObject(i).optJSONObject("document") ?: continue
+                    compact(d)?.let { list.add(it) }
+                }
+            }
+            var mx = last.optLong(s.key, 0L)
+            for (c in list) {
+                c.put("s", s.key)
+                docs.put(c.getString("i"), c)
+                fresh.add(Pair(c, s))
+                mx = maxOf(mx, c.optLong("ut", 0L))
+            }
+            last.put(s.key, mx)
+        }
+        if (full) cache.put("full", now)
+        try { cacheFile(ctx).writeText(cache.toString()) } catch (e: Exception) { }
+
+        // зміни інших учасників (push)
+        val cn = sp.getLong("cn", -1L)
+        val changes = ArrayList<Chg>()
+        for ((c, s) in fresh) {
+            if (s.name.isEmpty() || c.optBoolean("tpl")) continue
+            val eb = c.optString("eb")
+            val et = c.optLong("et", 0L)
+            if (eb.isNotEmpty() && myEmail.isNotEmpty() && eb != myEmail && et > cn && c.optString("ev") != "rep")
+                changes.add(Chg(et, eb, c.optString("ev"), c.optString("ti"), s.name))
         }
         if (cn < 0) {
             sp.edit().putLong("cn", now).apply() // перший запуск: старі зміни не повідомляємо
@@ -202,12 +234,51 @@ object Sync {
             if (!Quiet.isQuiet(ctx, now)) Notify.changes(ctx, changes.sortedBy { it.et })
             sp.edit().putLong("cn", maxOf(cn, changes.maxOf { it.et })).apply()
         }
+
+        // будильники й дані для віджетів
+        val info = HashMap<String, Src>()
+        for (s in srcs) info[s.key] = s
+        val defT = sp.getString("defT", "") ?: ""
+        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+        val todayS = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
+        val wFrom = java.time.LocalDate.now().minusDays(60).toString()
+        val wTo = java.time.LocalDate.now().plusDays(120).toString()
+        val wl = JSONArray()
+        val found = ArrayList<Triple<Long, String, Int>>()
+        val extra = HashMap<String, JSONObject>()
+        for (k in docs.keys()) {
+            val c = docs.getJSONObject(k)
+            if (c.optBoolean("tpl") || c.optBoolean("del")) continue
+            val s = info[c.optString("s")] ?: continue
+            val d = c.optString("d")
+            val asg = c.optString("asg")
+            if (d >= wFrom && d <= wTo && (asg.isEmpty() || asg == uid) && wl.length() < 700)
+                wl.put(JSONObject().put("d", d).put("t", c.optString("t")).put("ti", c.optString("ti")).put("pr", c.optString("pr")).put("dn", c.optBoolean("dn")).put("c", s.name))
+            if (s.viewer || c.optBoolean("dn")) continue
+            if (asg.isNotEmpty() && asg != uid) continue
+            val t = c.optString("t").ifEmpty { if (d >= todayS) defT else "" }
+            if (d.isEmpty() || t.isEmpty()) continue
+            val w = try { fmt.parse("$d $t")!!.time } catch (e: Exception) { continue }
+            val title = (if (s.name.isNotEmpty()) "\uD83C\uDFE2 " else "") + c.optString("ti")
+            if (w > now) {
+                found.add(Triple(w, title, 0))
+                extra[w.toString() + title] = JSONObject().put("i", c.getString("i")).put("r", c.optInt("rep"))
+                    .put("pr", c.optString("pr")).put("ot", c.optString("ot").ifEmpty { t }).put("od", c.optString("od").ifEmpty { d })
+            }
+            val ak = c.optLong("ak", 0L)
+            val pa = c.optJSONArray("pre")
+            if (pa != null) for (n in 0 until pa.length()) {
+                val m = pa.optLong(n)
+                val e = w - m * 60_000L
+                if (m > 0 && e > now && e > ak) found.add(Triple(e, "Через ${label(m)}: $title", 1))
+            }
+        }
         try { WData.save(ctx, wl, null) } catch (e: Exception) { }
         val out = JSONArray()
         for (p in found.sortedBy { it.first }.take(60)) {
             val o = JSONObject().put("t", p.second).put("w", p.first)
             if (p.third == 1) o.put("p", 1)
-            else extra[p.first.toString() + p.second]?.let { x -> for (k in x.keys()) o.put(k, x.get(k)) }
+            else extra[p.first.toString() + p.second]?.let { x -> for (kk in x.keys()) o.put(kk, x.get(kk)) }
             out.put(o)
         }
         Alarms.schedule(ctx, out.toString())

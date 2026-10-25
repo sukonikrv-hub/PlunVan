@@ -27,6 +27,9 @@ import java.io.File
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private var chooser: ValueCallback<Array<Uri>>? = null
+    companion object { var cur: MainActivity? = null }
+    override fun onResume() { super.onResume(); cur = this }
+    override fun onDestroy() { if (cur === this) cur = null; super.onDestroy() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -141,6 +144,7 @@ class Bridge(private val ctx: Context) {
             if (json.isBlank()) {
                 sp.edit().remove("auth").apply()
                 WData.clear(ctx)
+                Sync.clearCache(ctx)
                 Sync.cancelJob(ctx)
                 Alarms.schedule(ctx, "[]")
             } else {
@@ -218,6 +222,24 @@ class Bridge(private val ctx: Context) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } catch (e: Exception) { }
+    }
+
+    // Друк / PDF: окремий невидимий WebView з готовою сторінкою і системне вікно друку
+    @JavascriptInterface
+    fun printHtml(html: String) {
+        val act = MainActivity.cur ?: return
+        act.runOnUiThread {
+            try {
+                val w = WebView(act)
+                w.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(v: WebView, u: String?) {
+                        val pm = act.getSystemService(Context.PRINT_SERVICE) as android.print.PrintManager
+                        pm.print("Календар", v.createPrintDocumentAdapter("Календар"), android.print.PrintAttributes.Builder().build())
+                    }
+                }
+                w.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+            } catch (e: Exception) { }
+        }
     }
 
     // Резервна копія: зберігаємо файл у «Завантаження»
