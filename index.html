@@ -397,12 +397,19 @@ function render(){const y=cur.getFullYear(),m=cur.getMonth(),off=(new Date(y,m,1
  $("cal").innerHTML=h;const s=dt(sel);$("sl").textContent=df(sel);
  const L=srt(tasks.filter(t=>t.date===sel&&pass(t,mode==="all")));
  $("list").innerHTML=L.map(t=>item(t,{cal:mode==="all"})).join("")||`<p style="color:#8a949c">${tr("Задач немає")}</p>`;
- renderPage();sbState();applyLang()}
+ renderPage();sbState();applyLang();pushWidget()}
 const VERB={add:"➕ додано",edit:"✏ змінено",done:"✓ виконано",del:"🗑 видалено",res:"↩ відновлено",snz:"⏰ відкладено",cm:"💬 коментар до",sub:"☑ підзадачі в"};
 const nick=e=>String(e||"").split("@")[0]||"?";
 const ago=ms=>{const m=Math.floor((Date.now()-ms)/6e4);if(m<1)return tr("щойно");if(m<60)return m+" "+tr("хв тому");if(m<1440)return Math.floor(m/60)+" "+tr("год тому");const d=new Date(ms);return p(d.getDate())+"."+p(d.getMonth()+1)+" "+p(d.getHours())+":"+p(d.getMinutes())};
 function newsList(){const me=(auth.currentUser&&auth.currentUser.email)||"",lim=Date.now()-7*864e5;
  return tasksCorp.concat(trashCorp).filter(t=>t.et&&t.eb&&t.eb!==me&&t.et>lim&&t.ev!=="rep").sort((x,y)=>y.et-x.et).slice(0,100)}
+/* ---- віджети Android: передаємо задачі й вигляд ---- */
+let lastW="";
+function pushWidget(){if(!window.Android||!Android.setWidgetData||!auth.currentUser)return;
+ try{const uid=auth.currentUser.uid,a=iso(new Date(Date.now()-60*864e5)),b=iso(new Date(Date.now()+120*864e5));
+  const L=allT().filter(t=>t.date>=a&&t.date<=b&&(!t.asg||t.asg===uid)).slice(0,700).map(t=>({d:t.date,t:t.time||"",ti:t.title,pr:t.prio||"normal",dn:!!t.done,c:t.cp==="c"?((calById(t.cal)||{}).name||"🏢"):""}));
+  const j=JSON.stringify({tasks:L,meta:{c:pcol(),th:pref("theme")||"light",h12:pref("timefmt")==="12"}});
+  if(j===lastW)return;lastW=j;Android.setWidgetData(j)}catch(e){}}
 function renderPage(){const pg=flt.q.trim()?"search":page;if(pg==="cal")return;
  const now=new Date(),td=iso(now),all=allT().filter(t=>pass(t,true)),lst=(a,o)=>a.map(t=>item(t,o)).join("");
  const none=`<p style="color:#8a949c">${tr("Задач немає")}</p>`;let ti="",h="";$("pwn").hidden=pg!=="week";
