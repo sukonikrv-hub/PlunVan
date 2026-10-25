@@ -140,6 +140,7 @@ class Bridge(private val ctx: Context) {
             val sp = ctx.getSharedPreferences("p", 0)
             if (json.isBlank()) {
                 sp.edit().remove("auth").apply()
+                WData.clear(ctx)
                 Sync.cancelJob(ctx)
                 Alarms.schedule(ctx, "[]")
             } else {
@@ -179,6 +180,15 @@ class Bridge(private val ctx: Context) {
     }
 
     // Тихі години / «Не турбувати»: зберігаємо й перепланувуємо будильники
+    // Дані для віджетів на головному екрані: {tasks:[...], meta:{c:кольори, th:тема, h12:bool}}
+    @JavascriptInterface
+    fun setWidgetData(json: String) {
+        try {
+            val o = JSONObject(json)
+            WData.save(ctx, o.getJSONArray("tasks"), o.optJSONObject("meta"))
+        } catch (e: Exception) { }
+    }
+
     @JavascriptInterface
     fun setQuiet(json: String) {
         try {

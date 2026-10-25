@@ -129,6 +129,9 @@ object Sync {
         val todayS = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now)
         val cn = sp.getLong("cn", -1L)
         val changes = ArrayList<Chg>()
+        val wl = JSONArray()
+        val wFrom = java.time.LocalDate.now().minusDays(60).toString()
+        val wTo = java.time.LocalDate.now().plusDays(120).toString()
 
         fun collect(url: String, prefix: String, viewer: Boolean = false, calName: String = "") {
             val docs = JSONObject(call(url, "GET", null, id, "")).optJSONArray("documents") ?: return
@@ -140,6 +143,16 @@ object Sync {
                 if (calName.isNotEmpty() && eb.isNotEmpty() && myEmail.isNotEmpty() && eb != myEmail && et > cn && ev != "rep")
                     changes.add(Chg(et, eb, ev, str(f, "title"), calName))
                 if (f.has("del")) continue // у кошику
+                // дані для віджетів (усі задачі навколо сьогодні, включно з виконаними)
+                val wd = str(f, "date")
+                val wa = str(f, "asg")
+                if (wd >= wFrom && wd <= wTo && (wa.isEmpty() || wa == uid) && wl.length() < 700)
+                    wl.put(
+                        JSONObject().put("d", wd).put("t", str(f, "time")).put("ti", str(f, "title"))
+                            .put("pr", str(f, "prio").ifEmpty { "normal" })
+                            .put("dn", f.optJSONObject("done")?.optBoolean("booleanValue", false) == true)
+                            .put("c", calName)
+                    )
                 if (viewer) continue // роль «лише перегляд»: без нагадувань
                 if (f.optJSONObject("done")?.optBoolean("booleanValue", false) == true) continue
                 val d = str(f, "date")
@@ -189,6 +202,7 @@ object Sync {
             if (!Quiet.isQuiet(ctx, now)) Notify.changes(ctx, changes.sortedBy { it.et })
             sp.edit().putLong("cn", maxOf(cn, changes.maxOf { it.et })).apply()
         }
+        try { WData.save(ctx, wl, null) } catch (e: Exception) { }
         val out = JSONArray()
         for (p in found.sortedBy { it.first }.take(60)) {
             val o = JSONObject().put("t", p.second).put("w", p.first)

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="w_month">Календар на місяць</string>
+    <string name="w_today">Задачі на сьогодні</string>
+    <string name="w_week">Задачі на тиждень</string>
+</resources>

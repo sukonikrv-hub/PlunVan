@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical" android:padding="7dp" android:layout_marginTop="3dp">
+    <TextView android:id="@+id/iTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minWidth="44dp" android:textSize="12sp" android:textStyle="bold" android:maxLines="1"/>
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:id="@+id/iTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:maxLines="2"/>
+        <TextView android:id="@+id/iCal" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="10sp" android:maxLines="1"/>
+    </LinearLayout>
+</LinearLayout>
