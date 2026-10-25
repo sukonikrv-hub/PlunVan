@@ -15,9 +15,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Постійний ключ підпису (якщо задано секрети)
+        env:
+          KS: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > $RUNNER_TEMP/release.jks; echo "SIGN=1" >> $GITHUB_ENV; fi
       - name: Build
         working-directory: android
-        run: gradle assembleDebug -PsiteUrl=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        env:
+          KSP: ${{ secrets.KEYSTORE_PASS }}
+          KEYP: ${{ secrets.KEY_PASS }}
+          KA: ${{ secrets.KEY_ALIAS }}
+        run: |
+          EXTRA=""
+          if [ "$SIGN" = "1" ]; then EXTRA="-PksFile=$RUNNER_TEMP/release.jks -PksPass=$KSP -PkeyAlias=$KA -PkeyPass=$KEYP"; fi
+          gradle assembleDebug $EXTRA -PsiteUrl=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
       - uses: actions/upload-artifact@v4
         with:
           name: Kalendar-APK
