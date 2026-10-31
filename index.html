@@ -16,6 +16,10 @@ main{display:grid;grid-template-columns:3fr 2fr;gap:12px;padding:12px;max-width:
 .wd{text-align:center;font-style:italic;color:#5b6770;font-size:13px;padding:4px}
 .d{aspect-ratio:1.15;border:0;border-radius:0;font-size:16px;padding:0}
 .dropt{outline:3px dashed #2c6eaa!important;outline-offset:-3px}.dragg{position:fixed;z-index:9999;pointer-events:none;opacity:.85;max-width:260px;padding:8px 12px;border-radius:8px;background:var(--card);border:1px solid var(--bd);box-shadow:0 4px 14px #0004;font-size:14px}body.dragging{user-select:none;-webkit-user-select:none}
+.d{position:relative}.d .mk{position:absolute;left:1px;right:1px;bottom:1px;display:flex;justify-content:center;gap:1px;pointer-events:none}.mk svg,.mkb svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.mkrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}.mkb{border:1px solid var(--bd);border-radius:8px;padding:5px;background:var(--card);color:var(--tx);line-height:0}.mkb svg{width:24px;height:24px}
+.mkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px;margin:10px 0}.mkg button{padding:10px 0;line-height:0;border-radius:10px}.mkg button.on{outline:3px solid #2c6eaa}.mkg svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.wkc h4 .mk2 svg{width:14px;height:14px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .d.sel{outline:3px solid #2c6eaa;outline-offset:-3px}.d.today{font-weight:700}.d.x{pointer-events:none}
 .e{background:var(--e)}.low{background:var(--c-low,#ffe45c)}.normal{background:var(--c-normal,#ffa94d)}.high{background:var(--c-high,#ff5a5a)}.ok{background:var(--c-ok,#7fdc5a)}
 .t{display:flex;gap:8px;align-items:center;padding:8px;margin-top:6px;cursor:pointer;color:#1e2c39}
@@ -112,7 +116,7 @@ input[type=color]{width:56px;height:34px;padding:2px;flex:none}.pcr{display:flex
 <main id="calmain">
  <div class="card"><div class="nav"><button id="pm">◀</button><b id="ml"></b><button id="td">Сьогодні</button><button id="nm">▶</button></div>
   <div class="grid" id="cal"></div></div>
- <div class="card"><div class="nav"><b id="sl" style="text-align:left"></b><button class="pri" id="add">+ Додати задачу</button></div>
+ <div class="card"><div class="nav"><b id="sl" style="text-align:left"></b><button class="pri" id="add">+ Додати задачу</button></div><div class="mkrow" id="mkrow"></div>
   <div class="row" id="qcw" style="margin:0 0 4px;align-items:center" hidden><span style="font-size:13px;color:#8a949c">Додати в:</span><select id="qc" style="flex:1"></select></div>
   <div class="row" style="margin:0 0 4px"><input id="qa" placeholder="Швидко: завтра о 15:00 дзвінок Іванові" style="flex:1"><button id="qb" class="pri">＋</button></div>
   <div id="qmsg" style="font-size:12px;color:#3d8b3d;min-height:16px"></div>
@@ -229,9 +233,10 @@ input[type=color]{width:56px;height:34px;padding:2px;flex:none}.pcr{display:flex
   <label style="color:#d33">Небезпечна зона</label><div class="row"><button type="button" id="acD" style="color:#d33">🗑 Видалити акаунт і всі дані</button></div>
   <div style="font-size:12px;color:#8a949c">Буде видалено особисті задачі, календарі, де ви єдиний учасник, і вас буде вилучено з решти календарів. Дію не можна скасувати.</div>
  </section>
- <div class="row sfoot"><span style="font-size:12px;color:#8a949c">Версія сайту: 2026-10-25 · v14 · налаштування синхронізуються з акаунтом</span><button class="pri">Закрити</button></div>
+ <div class="row sfoot"><span style="font-size:12px;color:#8a949c">Версія сайту: 2026-10-25 · v15 · налаштування синхронізуються з акаунтом</span><button class="pri">Закрити</button></div>
 </form></dialog>
 <dialog id="tdlg"><form method="dialog"><div id="tbody"></div><div class="row"><button type="button" id="tPrev">← Назад</button><button type="button" id="tNext" class="pri">Далі →</button><button type="button" id="tSkip" style="margin-left:auto">Пропустити</button></div></form></dialog>
+<dialog id="kdlg"><form method="dialog"><h3 style="margin-top:0">🏷 Значки на <span id="kday"></span></h3><div id="kgrid" class="mkg"></div><div class="row"><button class="pri">Готово</button><button type="button" id="kclr">Очистити день</button></div></form></dialog>
 <dialog id="cdlg"><form method="dialog"><h3 id="cq" style="margin-top:0"></h3><div class="row"><button class="pri" value="ok">OK</button><button value="no">Скасувати</button></div></form></dialog>
 <dialog id="pdlg"><form method="dialog"><h3 id="pq" style="margin-top:0"></h3><input id="pv" style="width:100%"><div class="row"><button class="pri" value="ok">OK</button><button type="button" id="pc">Скасувати</button></div></form></dialog>
 <dialog id="mdlg"><form method="dialog"><h3 style="margin-top:0">🏢 Керування календарем</h3><div id="mbody"></div><div class="row"><button class="pri">Закрити</button></div></form></dialog>
@@ -409,7 +414,7 @@ async function joinCal(j,t,u){const done=()=>{history.replaceState(null,"",locat
   b.update(doc(db,"calendars",j),{members:arrayUnion(u.uid),["names."+u.uid]:u.email||"",jt:t});await b.commit();
   done();clog(j,"join","")}catch(e){alert(tr("Не вдалося приєднатися за посиланням"))}}
 onAuthStateChanged(auth,u=>{unsubP&&unsubP();unsubP=null;try{if(window.Android)Android.setAuth(u?JSON.stringify({k:cfg.apiKey,p:cfg.projectId,u:u.uid,r:u.refreshToken,e:u.email||""}):"")}catch(e){}unsub&&unsub();unsubC&&unsubC();dropCals();unsub=unsubC=unsubK=null;$("login").hidden=!!u;$("app").hidden=!u;
- if(u){col=collection(db,"users",u.uid,"tasks");unsubP=onSnapshot(doc(db,"users",u.uid,"prefs","main"),prefRemote,()=>{});
+ if(u){col=collection(db,"users",u.uid,"tasks");subMarks(u);unsubP=onSnapshot(doc(db,"users",u.uid,"prefs","main"),prefRemote,()=>{});
   unsub=onSnapshot(col,s=>{const a=s.docs.map(d=>({id:d.id,cp:"m",...d.data()}));tpls=a.filter(x=>x.tpl);tasksMe=a.filter(x=>!x.tpl&&!x.del);trashMe=a.filter(x=>!x.tpl&&x.del);purge();sync()}); // шаблони лежать поруч із задачами (без дати, тому дзвінків не дають)
   unsubC=onSnapshot(query(collection(db,"calendars"),where("members","array-contains",u.uid)),s=>{
    const ids=new Set(),me=auth.currentUser;
@@ -424,7 +429,7 @@ onAuthStateChanged(auth,u=>{unsubP&&unsubP();unsubP=null;try{if(window.Android)A
   const j=new URLSearchParams(location.search).get("join");
   if(j)joinCal(j,new URLSearchParams(location.search).get("t"),u);
   if("Notification"in window&&Notification.permission==="default")Notification.requestPermission()}
- else{tasksMe=[];tasksCorp=[];trashMe=[];trashCorp=[];tasks=[];tpls=[];cid=ccol=null;stopSound()}});
+ else{subMarks(null);tasksMe=[];tasksCorp=[];trashMe=[];trashCorp=[];tasks=[];tpls=[];cid=ccol=null;stopSound()}});
 
 /* ---- кошик: видалені задачі зберігаються 30 днів ---- */
 const purged=new Set();
@@ -458,8 +463,8 @@ const dayCls=k=>{const a=tasks.filter(t=>t.date===k&&pass(t,mode==="all"));if(!a
 function render(){const y=cur.getFullYear(),m=cur.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),td=iso(new Date());
  $("ml").textContent=MON[m]+" "+y;let h=WD.map(w=>`<div class="wd">${w}</div>`).join("");
  for(let i=0;i<42;i++){const d=i-off+1;if(d<1||d>n){h+='<button class="d e x"></button>';continue}
-  const k=`${y}-${p(m+1)}-${p(d)}`;h+=`<button class="d ${dayCls(k)}${k===sel?" sel":""}${k===td?" today":""}" data-d="${k}">${d}</button>`}
- $("cal").innerHTML=h;const s=dt(sel);$("sl").textContent=df(sel);
+  const k=`${y}-${p(m+1)}-${p(d)}`;h+=`<button class="d ${dayCls(k)}${k===sel?" sel":""}${k===td?" today":""}" data-d="${k}">${d}${mkCell(k)}</button>`}
+ $("cal").innerHTML=h;mkRow();const s=dt(sel);$("sl").textContent=df(sel);
  const L=srt(tasks.filter(t=>t.date===sel&&pass(t,mode==="all")));
  $("list").innerHTML=L.map(t=>item(t,{cal:mode==="all"})).join("")||`<p style="color:#8a949c">${tr("Задач немає")}</p>`;
  renderPage();sbState();applyLang();pushWidget()}
@@ -487,7 +492,7 @@ function renderPage(){const pg=flt.q.trim()?"search":page;if(pg==="cal")return;
  else if(pg==="week"){const mo=wk,e=new Date(mo.getFullYear(),mo.getMonth(),mo.getDate()+6,12);
   ti=`${p(mo.getDate())}.${p(mo.getMonth()+1)} – ${p(e.getDate())}.${p(e.getMonth()+1)}.${e.getFullYear()}`;
   h='<div class="wkg">'+Array.from({length:7},(_,i)=>{const d=new Date(mo.getFullYear(),mo.getMonth(),mo.getDate()+i,12),k=iso(d);
-   return `<div class="wkc${k===td?" tdy":""}" data-wd="${k}"><h4>${WD[i]} ${p(d.getDate())}.${p(d.getMonth()+1)}</h4>${lst(srt(all.filter(t=>t.date===k)),{cal:1})||'<small style="color:#8a949c">—</small>'}</div>`}).join("")+"</div>"}
+   return `<div class="wkc${k===td?" tdy":""}" data-wd="${k}"><h4>${WD[i]} ${p(d.getDate())}.${p(d.getMonth()+1)}${mkWeek(k)}</h4>${lst(srt(all.filter(t=>t.date===k)),{cal:1})||'<small style="color:#8a949c">—</small>'}</div>`}).join("")+"</div>"}
  else if(pg==="trash"){const a=trashMe.concat(trashCorp).sort((x,y)=>y.del-x.del);ti=tr("Кошик")+" ("+a.length+")";
   h=(a.length?`<div class="row" style="margin:0 0 6px"><button data-pxa="1">🗑 Очистити кошик</button><small style="color:#8a949c;align-self:center">Задачі видаляються остаточно через 30 днів</small></div>`:"")
    +a.map(t=>{const d=new Date(t.del),left=Math.max(0,30-Math.floor((Date.now()-t.del)/864e5)),ro=roV(t);
@@ -795,6 +800,23 @@ $("tSkip").onclick=()=>$("tdlg").close();
 $("tdlg").onclose=()=>pref("tour","1");
 $("tGuide").onclick=()=>{$("sdlg").close();openTour()};
 setTimeout(()=>{if(!pref("tour")&&auth.currentUser&&!$("app").hidden)openTour()},2500);
+/* ---- значки на днях (особисті, контурні) ---- */
+const MKI={"star": ["Важливе", "<path d='M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z'/>"], "warn": ["Увага", "<path d='M12 3l10 18H2zM12 10v5M12 18v.01'/>"], "fire": ["Терміново", "<path d='M12 3c1 4 5 5 5 10a5 5 0 01-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-4-1-6 1-9z'/>"], "doc": ["Наказ / звіт", "<path d='M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6'/>"], "list": ["Перелік справ", "<path d='M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9'/>"], "shield": ["Служба / наряд", "<path d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/>"], "medal": ["Нагорода", "<circle cx='12' cy='15' r='5'/><path d='M8.5 3l3.5 6 3.5-6'/>"], "target": ["Стрільби / ціль", "<circle cx='12' cy='12' r='8'/><circle cx='12' cy='12' r='4'/><circle cx='12' cy='12' r='.8'/>"], "tent": ["Польові", "<path d='M3 20L12 4l9 16zM12 4v16M9 20l3-6 3 6'/>"], "radio": ["Зв’язок", "<path d='M12 12v9M8 21h8M7 8a7 7 0 000 8M17 8a7 7 0 010 8M4.5 5.5a11 11 0 000 13M19.5 5.5a11 11 0 010 13'/><circle cx='12' cy='12' r='1.2'/>"], "med": ["Медицина", "<rect x='4' y='4' width='16' height='16' rx='3'/><path d='M12 8v8M8 12h8'/>"], "pill": ["Ліки", "<rect x='3' y='9' width='18' height='6' rx='3' transform='rotate(-35 12 12)'/><path d='M9.8 9.8l4.4 4.4'/>"], "tooth": ["Стоматолог", "<path d='M8 4c-3 0-4 3-3.5 6s1.5 5 2 9c.3 2 2 2 2.5 0l.5-3h1l.5 3c.5 2 2.2 2 2.5 0 .5-4 1.5-6 2-9S18 4 15 4c-1.5 0-2 .5-3 .5S9.5 4 8 4z'/>"], "gym": ["Спорт", "<path d='M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12'/>"], "bell": ["Нагадування", "<path d='M6 17V11a6 6 0 0112 0v6l1.5 2h-15zM10 21h4'/>"], "clock": ["Час", "<circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/>"], "glass": ["Очікування", "<path d='M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9'/>"], "stop": ["Термін", "<circle cx='12' cy='13' r='8'/><path d='M12 9v4l2 2M9 3h6M12 3v2'/>"], "gear": ["Техніка / обслуговування", "<circle cx='12' cy='12' r='3'/><path d='M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1'/>"], "brief": ["Робота", "<rect x='3' y='7' width='18' height='13' rx='2'/><path d='M9 7V4h6v3M3 13h18'/>"], "book": ["Навчання", "<path d='M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3zM5 17a3 3 0 013-3h11'/>"], "pin": ["Місце", "<path d='M12 21s-6-5.4-6-10a6 6 0 0112 0c0 4.6-6 10-6 10z'/><circle cx='12' cy='11' r='2'/>"], "flag": ["Подія", "<path d='M5 21V4M5 4h12l-2.5 4L17 12H5'/>"], "plane": ["Поїздка", "<path d='M21 3L3 11l7 3 3 7zM10 14L21 3'/>"], "car": ["Автотранспорт", "<path d='M4 15v-3l2-5h12l2 5v3zM4 15v3h3v-3M17 15v3h3v-3'/><circle cx='8' cy='12.5' r='.8'/><circle cx='16' cy='12.5' r='.8'/>"], "globe": ["Відрядження", "<circle cx='12' cy='12' r='9'/><path d='M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18'/>"], "bed": ["Відпочинок", "<path d='M3 18V6M3 14h18v4M21 14v-2a3 3 0 00-3-3h-7v5M7 11.5v.01'/>"], "home": ["Дім", "<path d='M3 11l9-8 9 8M5 10v10h14V10M10 20v-6h4v6'/>"], "heart": ["Сім’я", "<path d='M12 20s-8-5-8-11a4.5 4.5 0 018-2.5A4.5 4.5 0 0120 9c0 6-8 11-8 11z'/>"], "cake": ["День народження", "<path d='M4 20h16v-6H4zM4 14c2-2 4 2 8 0s6 2 8 0M12 10V7M12 5.5v.01'/>"], "gift": ["Подарунок", "<rect x='4' y='9' width='16' height='11'/><path d='M3 9h18V6H3zM12 6v14M12 6c-2-3-5-3-5-1s3 1 5 1zM12 6c2-3 5-3 5-1s-3 1-5 1z'/>"], "phone": ["Дзвінок", "<path d='M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2C10 21 3 14 3 6a2 2 0 012-2z'/>"], "cart": ["Покупки", "<path d='M3 4h3l2.5 11h9.5l2-8H7'/><circle cx='10' cy='19' r='1.4'/><circle cx='17' cy='19' r='1.4'/>"], "music": ["Музика", "<path d='M9 18V6l10-2v12'/><circle cx='6.5' cy='18' r='2.5'/><circle cx='16.5' cy='16' r='2.5'/>"], "film": ["Кіно", "<rect x='3' y='5' width='18' height='14' rx='2'/><path d='M3 9h18M3 15h18M8 5v14M16 5v14'/>"], "trash": ["Прибирання", "<path d='M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6'/>"], "info": ["Інформація", "<circle cx='12' cy='12' r='9'/><path d='M12 11v6M12 7.5v.01'/>"]};
+let marks={},unsubMk=null,kSel=[];
+const mkSvg=id=>MKI[id]?`<svg viewBox="0 0 24 24" aria-label="${esc(MKI[id][0])}"><title>${esc(MKI[id][0])}</title>${MKI[id][1]}</svg>`:"";
+const mkIn=k=>(marks[k]||[]).filter(i=>MKI[i]);
+const mkCell=k=>{const a=mkIn(k);return a.length?`<span class="mk">${a.slice(0,3).map(mkSvg).join("")}</span>`:""};
+const mkWeek=k=>{const a=mkIn(k);return a.length?` <span class="mk2">${a.slice(0,5).map(mkSvg).join("")}</span>`:""};
+function mkRow(){const a=mkIn(sel);$("mkrow").innerHTML=a.map(i=>`<span class="mkb" data-mkr="1" title="${esc(MKI[i][0])}">${mkSvg(i)}</span>`).join("")+`<button type="button" id="mkAdd" style="padding:4px 10px">${a.length?"✎":"＋"} ${tr("Значки")}</button>`}
+$("mkrow").onclick=()=>openMk();
+function openMk(){kSel=mkIn(sel).slice();$("kday").textContent=df(sel);
+ $("kgrid").innerHTML=Object.keys(MKI).map(i=>`<button type="button" data-k="${i}" class="${kSel.includes(i)?"on":""}" title="${esc(MKI[i][0])}">${mkSvg(i)}</button>`).join("");$("kdlg").showModal()}
+$("kgrid").onclick=e=>{const b=e.target.closest("[data-k]");if(!b)return;const i=b.dataset.k,x=kSel.indexOf(i);if(x>=0)kSel.splice(x,1);else kSel.push(i);b.classList.toggle("on",x<0)};
+$("kclr").onclick=()=>{kSel=[];document.querySelectorAll("#kgrid .on").forEach(b=>b.classList.remove("on"))};
+$("kdlg").onclose=()=>{const u=auth.currentUser;if(!u)return;const r=doc(db,"users",u.uid,"marks",sel);
+ if(kSel.length)W(setDoc(r,{i:kSel.slice(0,12)}));else if(marks[sel])W(deleteDoc(r))};
+function subMarks(u){unsubMk&&unsubMk();marks={};if(!u){unsubMk=null;return}
+ unsubMk=onSnapshot(collection(db,"users",u.uid,"marks"),s=>{marks={};s.docs.forEach(d=>{const x=d.data();if(x&&Array.isArray(x.i))marks[d.id]=x.i});render()},()=>{})}
 /* ---- друк / PDF ---- */
 function fillPrint(){$("prD").value=$("prD").value||iso(new Date());$("prC").innerHTML='<option value="all">Усі календарі</option><option value="me">Особистий</option>'+cals.map(c=>`<option value="${esc(c.id)}">🏢 ${esc(c.name)}</option>`).join("");applyLang()}
 function buildPrint(){const per=$("prP").value,base=dt($("prD").value||iso(new Date())),cs=$("prC").value,sd=$("prDn").checked;
@@ -814,7 +836,7 @@ const cleanR=a=>a.map(({cp,cal,...r})=>r);
 $("acX").onclick=()=>{const u=auth.currentUser;if(!u)return;
  const j=JSON.stringify({v:2,exported:new Date().toISOString(),email:u.email,personal:cleanR(tasksMe),trash:cleanR(trashMe),templates:cleanR(tpls),
   corporate:cals.map(c=>({id:c.id,name:c.name,owner:c.owner,members:c.members,names:c.names,tasks:cleanR(c.tasks),trash:cleanR(c.trash||[])})),
-  prefs:Object.fromEntries(SYNCK.map(k=>[k,pref(k)]).filter(x=>x[1]!==null))},null,1),name="calendar-all-data-"+iso(new Date())+".json";
+  marks,prefs:Object.fromEntries(SYNCK.map(k=>[k,pref(k)]).filter(x=>x[1]!==null))},null,1),name="calendar-all-data-"+iso(new Date())+".json";
  if(window.Android){try{const r=Android.saveFile(name,j);alert(r?tr("Збережено")+": "+r:tr("Не вдалося зберегти файл"))}catch(e){alert(tr("Не вдалося зберегти файл"))}return}
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([j],{type:"application/json"}));a.download=name;document.body.appendChild(a);a.click();a.remove()};
 $("acD").onclick=async()=>{const u=auth.currentUser;if(!u)return;
@@ -827,7 +849,7 @@ $("acD").onclick=async()=>{const u=auth.currentUser;if(!u)return;
  try{for(const c of cals.slice()){
    if(c.owner===u.uid){for(const sub of ["tasks","invites","log"]){const q0=await getDocs(collection(db,"calendars",c.id,sub));await Promise.all(q0.docs.map(d=>deleteDoc(d.ref)))}await deleteDoc(doc(db,"calendars",c.id))}
    else await updateDoc(doc(db,"calendars",c.id),{members:arrayRemove(u.uid),["names."+u.uid]:deleteField()})}
-  const q1=await getDocs(col);await Promise.all(q1.docs.map(d=>deleteDoc(d.ref)));
+  const q1=await getDocs(col);await Promise.all(q1.docs.map(d=>deleteDoc(d.ref)));const q2=await getDocs(collection(db,"users",u.uid,"marks"));await Promise.all(q2.docs.map(d=>deleteDoc(d.ref)));
   try{await deleteDoc(doc(db,"users",u.uid,"prefs","main"))}catch(e){}
   await deleteUser(u);try{localStorage.clear()}catch(e){}location.reload()}
  catch(e){alert(tr("Помилка")+": "+(e.code||e.message))}};
