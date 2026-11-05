@@ -177,6 +177,8 @@ input[type=color]{width:56px;height:34px;padding:2px;flex:none}.pcr{display:flex
   <div class="sg"><div class="pcr"><span>Низький</span><input type="color" id="pcL"></div><div class="pcr"><span>Звичайний</span><input type="color" id="pcN"></div>
   <div class="pcr"><span>Високий</span><input type="color" id="pcH"></div><div class="pcr"><span>Виконано</span><input type="color" id="pcO"></div></div>
   <div class="row"><button type="button" id="pcCb">👁 Для дальтоніків</button><button type="button" id="pcRs">↺ Скинути</button></div>
+  <h4>Власні пріоритети</h4><div id="cpL"></div><div class="row"><button type="button" id="cpAdd">+ Додати пріоритет</button></div>
+  <div style="font-size:12px;color:#8a949c;margin-top:4px">Назву й колір бачать і колеги у спільних календарях. Поле «як…» визначає, який сигнал і яку важливість для кольору дня матиме пріоритет.</div>
  </section>
 
  <section class="sp" data-sp="cal" hidden>
@@ -253,7 +255,7 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmai
 import {getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc as setDoc0,deleteDoc,onSnapshot,query,where,updateDoc as updateDoc0,arrayUnion,arrayRemove,deleteField,getDoc,getDocs,orderBy,limit,writeBatch} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 document.querySelectorAll(".lg").forEach(i=>i.src=LOGO_DATA);document.querySelector("link[rel=icon]").href=LOGO_DATA;
-const SYNCK=["theme","lang","snd","sndP","quiet","timefmt","datefmt","start","nav","pcol","defT","bgmode","bgdim"]; // синхронізуються з акаунтом (без картинки фону й власного файлу сигналу)
+const SYNCK=["theme","lang","snd","sndP","quiet","timefmt","datefmt","start","nav","pcol","cprio","defT","bgmode","bgdim"]; // синхронізуються з акаунтом (без картинки фону й власного файлу сигналу)
 let prefTimer=null;
 const pref=(k,v)=>{try{if(v!==undefined){localStorage.setItem(k,v);if(SYNCK.includes(k))prefQueue()}return localStorage.getItem(k)}catch(e){return null}};
 function prefQueue(){clearTimeout(prefTimer);prefTimer=setTimeout(prefPush,800)}
@@ -276,6 +278,21 @@ const cfg={apiKey:"AIzaSyDMF49MHyvMCHVmU7cLEUxaE7ZQFga-8tE",authDomain:"planride
 const $=id=>document.getElementById(id),p=n=>String(n).padStart(2,"0");
 const MON=Array.from({length:12},(_,i)=>{const m=new Date(2026,i,1).toLocaleString(LANG,{month:"long"});return m[0].toUpperCase()+m.slice(1)});
 const WD=Array.from({length:7},(_,i)=>new Date(2026,0,5+i).toLocaleString(LANG,{weekday:"short"})),PL={low:"Низький",normal:"Звичайний",high:"Високий"};
+/* ---- власні пріоритети: назва й колір зберігаються і в налаштуваннях, і в самій задачі (щоб їх бачили колеги) ---- */
+const HEX=/^#[0-9a-f]{6}$/i,BASEV={low:0,normal:1,high:2};
+const cpList=()=>{try{const a=JSON.parse(pref("cprio")||"[]");return Array.isArray(a)?a.filter(x=>x&&typeof x.id==="string"&&HEX.test(x.c||"")):[]}catch(e){return[]}};
+function prDef(t){const pr=t.prio||"normal";if(PL[pr])return null;const d=cpList().find(x=>x.id===pr);if(d)return{n:d.n||"",c:d.c,b:BASEV[d.b]!==undefined?d.b:"normal"};
+ if(t.pc&&HEX.test(t.pc))return{n:t.pn||"",c:t.pc,b:BASEV[t.pb]!==undefined?t.pb:"normal"};return null}
+const prBase=t=>{const d=prDef(t);return d?d.b:(PL[t.prio]?t.prio:"normal")};
+const prName=t=>{const d=prDef(t);return d?d.n:tr(PL[t.prio]||"")};
+const prCss=(t,soft)=>{const d=prDef(t);if(!d)return"";return `background:${soft?mixW(d.c,.55):d.c};color:${soft||lum(d.c)>.55?"#1e2c39":"#fff"}`};
+function prFields(v,merge){const d=cpList().find(x=>x.id===v);if(d)return{prio:v,pn:d.n,pc:d.c,pb:BASEV[d.b]!==undefined?d.b:"normal"};
+ return merge?{prio:v,pn:deleteField(),pc:deleteField(),pb:deleteField()}:{prio:v}}
+function fillFp(t){const cp=cpList(),ex=prDef(t)&&!cp.some(x=>x.id===t.prio)?{id:t.prio,n:t.pn,c:t.pc}:null;
+ $("fP").innerHTML='<option value="low">Низький<option value="normal">Звичайний<option value="high">Високий</option>'+cp.concat(ex?[ex]:[]).map(x=>`<option value="${esc(x.id)}">● ${esc(x.n||"")}</option>`).join("")}
+let fltSig="";function fillFlt(){const cp=cpList(),sg=JSON.stringify(cp);if(sg===fltSig)return;fltSig=sg;const v=$("fltP").value;
+ $("fltP").innerHTML='<option value="">Усі пріоритети<option value="low">Низький<option value="normal">Звичайний<option value="high">Високий</option>'+cp.map(x=>`<option value="${esc(x.id)}">● ${esc(x.n||"")}</option>`).join("");$("fltP").value=cp.some(x=>x.id===v)||["low","normal","high"].includes(v)?v:""}
+
 const iso=d=>`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 const fmt=d=>iso(d)+` ${p(d.getHours())}:${p(d.getMinutes())}`;
 const tf=t=>{if(!t||pref("timefmt")!=="12")return t;const [h,m]=t.split(":").map(Number);return (h%12||12)+":"+p(m)+" "+(h<12?"AM":"PM")};
@@ -352,7 +369,7 @@ $("bfp").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").textCon
  try{await sendPasswordResetEmail(auth,e);$("lerr").textContent="";alert(tr("Лист для скидання пароля надіслано на")+" "+e)}catch(x){$("lerr").textContent=tr("Помилка")+": "+(x.code||x.message)}};
 const pushAlarms=()=>{if(!window.Android)return;try{const now=Date.now(),L=[];
  for(const t of allT()){if(t.done||!mine(t))continue;if(!t.time&&t.date<iso(new Date()))continue;const due=ts(t);if(isNaN(due))continue;const ti=(t.cp==="c"?"🏢 ":"")+t.title;
-  for(const m of [0,...(t.pre||[])]){const w=due-m*6e4;if(w>now&&(m===0||w>(t.ak||0)))L.push(m?Object.assign({t:tr("Через")+" "+lbl(m)+": "+ti,w,p:1},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id}:{}):Object.assign({t:ti,w,pr:t.prio||"normal"},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id,r:t.rep?1:0,ot:t.ot||t.time,od:t.od||t.date}:{}))}}
+  for(const m of [0,...(t.pre||[])]){const w=due-m*6e4;if(w>now&&(m===0||w>(t.ak||0)))L.push(m?Object.assign({t:tr("Через")+" "+lbl(m)+": "+ti,w,p:1},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id}:{}):Object.assign({t:ti,w,pr:prBase(t)},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id,r:t.rep?1:0,ot:t.ot||t.time,od:t.od||t.date}:{}))}}
  Android.setAlarms(JSON.stringify(L.sort((a,b)=>a.w-b.w).slice(0,60)))}catch(e){}};
 const sync=()=>{startApply();tasks=tasksFor(mode);render();tick();ui();fillQc();pushAlarms();if($("dlg").open)renderCm()};
 const allT=()=>tasksMe.concat(tasksCorp),colOf=t=>t.cp==="c"?(calById(t.cal)||{}).col:col,curCol=()=>mode==="corp"?ccol:col;
@@ -459,14 +476,16 @@ function item(t,o){o=o||{};
  const sb=t.sub&&t.sub.length?" · ☑ "+t.sub.filter(x=>x.d).length+"/"+t.sub.length:"";
  const ro=roV(t),bt=ro?"":`<button data-c="${t.id}">${t.done?"↩":"✓"}</button>`,
   sl=(t.sub||[]).length?'<div class="sbs">'+t.sub.map((z,i)=>`<label class="${z.d?"dn":""}"><input type="checkbox" data-sb="${t.id}:${i}" ${z.d?"checked":""} ${ro?"disabled":""}> ${esc(z.t)}</label>`).join("")+"</div>":"";
- return `<div class="tw"><div class="t ${t.done?"ok":t.prio}" data-e="${t.id}">${bt}
-  <span>${t.done?"✓ ":""}${t.rep?"🔁 ":""}${MKI[t.ic]?`<span class="mk2">${mkSvg(t.ic)}</span> `:""}${esc(t.title)}${tg?" "+tg:""}<br><small>${o.date?df(t.date)+" ":""}${t.time?tf(t.time):tr("без часу")} · ${tr(PL[t.prio]||"")}${o.cal?(t.cp==="c"?" · 🏢 "+esc((calById(t.cal)||{}).name||""):" · 👤"):""}${t.sn&&!t.done?" · "+tr("⏰ відкладено"):""}${t.pre&&t.pre.length?" · 🔔"+t.pre.length:""}${(t.desc||"").trim()?" · 📝":""}${asgTxt(t)}${sb}${t.cm&&t.cm.length?" · 💬"+t.cm.length:""}${t.done&&t.dby?" · ✓ "+esc(t.dby):""}</small></span></div>${sl}</div>`}
+ return `<div class="tw"><div class="t ${t.done?"ok":(prDef(t)?"cp":t.prio)}"${!t.done&&prDef(t)?` style="${prCss(t,true)}"`:""} data-e="${t.id}">${bt}
+  <span>${t.done?"✓ ":""}${t.rep?"🔁 ":""}${MKI[t.ic]?`<span class="mk2">${mkSvg(t.ic)}</span> `:""}${esc(t.title)}${tg?" "+tg:""}<br><small>${o.date?df(t.date)+" ":""}${t.time?tf(t.time):tr("без часу")} · ${prName(t)}${o.cal?(t.cp==="c"?" · 🏢 "+esc((calById(t.cal)||{}).name||""):" · 👤"):""}${t.sn&&!t.done?" · "+tr("⏰ відкладено"):""}${t.pre&&t.pre.length?" · 🔔"+t.pre.length:""}${(t.desc||"").trim()?" · 📝":""}${asgTxt(t)}${sb}${t.cm&&t.cm.length?" · 💬"+t.cm.length:""}${t.done&&t.dby?" · ✓ "+esc(t.dby):""}</small></span></div>${sl}</div>`}
+const dayInfo=k=>{const a=tasks.filter(t=>t.date===k&&pass(t,mode==="all"));if(!a.length)return["e",""];const o=a.filter(t=>!t.done);if(!o.length)return["ok",""];
+ const b=["high","normal","low"].find(x=>o.some(t=>prBase(t)===x))||"normal",t=o.find(t=>prBase(t)===b);return prDef(t)?["cp",prCss(t,false)]:[b,""]};
 const dayCls=k=>{const a=tasks.filter(t=>t.date===k&&pass(t,mode==="all"));if(!a.length)return"e";const o=a.filter(t=>!t.done);if(!o.length)return"ok";
  return["high","normal","low"].find(x=>o.some(t=>t.prio===x))||"normal"};
 function render(){const y=cur.getFullYear(),m=cur.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),td=iso(new Date());
- $("ml").textContent=MON[m]+" "+y;let h=WD.map(w=>`<div class="wd">${w}</div>`).join("");
+ fillFlt();$("ml").textContent=MON[m]+" "+y;let h=WD.map(w=>`<div class="wd">${w}</div>`).join("");
  for(let i=0;i<42;i++){const d=i-off+1;if(d<1||d>n){h+='<button class="d e x"></button>';continue}
-  const k=`${y}-${p(m+1)}-${p(d)}`;h+=`<button class="d ${dayCls(k)}${k===sel?" sel":""}${k===td?" today":""}" data-d="${k}">${d}${mkCell(k)}</button>`}
+  const k=`${y}-${p(m+1)}-${p(d)}`;const di=dayInfo(k);h+=`<button class="d ${di[0]}${k===sel?" sel":""}${k===td?" today":""}" data-d="${k}"${di[1]?` style="${di[1]}"`:""}>${d}${mkCell(k)}</button>`}
  $("cal").innerHTML=h;const s=dt(sel);$("sl").textContent=df(sel);
  const L=srt(tasks.filter(t=>t.date===sel&&pass(t,mode==="all")));
  $("list").innerHTML=L.map(t=>item(t,{cal:mode==="all"})).join("")||`<p style="color:#8a949c">${tr("Задач немає")}</p>`;
@@ -480,7 +499,7 @@ function newsList(){const me=(auth.currentUser&&auth.currentUser.email)||"",lim=
 let lastW="";
 function pushWidget(){if(!window.Android||!Android.setWidgetData||!auth.currentUser)return;
  try{const uid=auth.currentUser.uid,a=iso(new Date(Date.now()-60*864e5)),b=iso(new Date(Date.now()+120*864e5));
-  const L=allT().filter(t=>t.date>=a&&t.date<=b&&(!t.asg||t.asg===uid)).slice(0,700).map(t=>({d:t.date,t:t.time||"",ti:t.title,pr:t.prio||"normal",dn:!!t.done,c:t.cp==="c"?((calById(t.cal)||{}).name||"🏢"):""}));
+  const L=allT().filter(t=>t.date>=a&&t.date<=b&&(!t.asg||t.asg===uid)).slice(0,700).map(t=>({d:t.date,t:t.time||"",ti:t.title,pr:prBase(t),dn:!!t.done,c:t.cp==="c"?((calById(t.cal)||{}).name||"🏢"):""}));
   const j=JSON.stringify({tasks:L,meta:{c:pcol(),th:pref("theme")||"light",h12:pref("timefmt")==="12"}});
   if(j===lastW)return;lastW=j;Android.setWidgetData(j)}catch(e){}}
 function renderPage(){const pg=flt.q.trim()?"search":page;if(pg==="cal")return;
@@ -499,10 +518,10 @@ function renderPage(){const pg=flt.q.trim()?"search":page;if(pg==="cal")return;
  else if(pg==="trash"){const a=trashMe.concat(trashCorp).sort((x,y)=>y.del-x.del);ti=tr("Кошик")+" ("+a.length+")";
   h=(a.length?`<div class="row" style="margin:0 0 6px"><button data-pxa="1">🗑 Очистити кошик</button><small style="color:#8a949c;align-self:center">Задачі видаляються остаточно через 30 днів</small></div>`:"")
    +a.map(t=>{const d=new Date(t.del),left=Math.max(0,30-Math.floor((Date.now()-t.del)/864e5)),ro=roV(t);
-    return `<div class="t tr ${t.prio}"><span>🗑 ${esc(t.title)}<br><small>${df(t.date)} ${tf(t.time||"")} · ${tr("видалено")} ${p(d.getDate())}.${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())} · ${tr("залишилось")} ${left} ${tr("дн")}${t.cp==="c"?" · 🏢 "+esc((calById(t.cal)||{}).name||""):" · 👤"}</small></span>${ro?"":`<button data-rs="${t.id}">↩ Відновити</button><button data-px="${t.id}" title="Видалити назавжди">✕</button>`}</div>`}).join("")
+    return `<div class="t tr ${prDef(t)?"cp":t.prio}"${prDef(t)?` style="${prCss(t,true)}"`:""}><span>🗑 ${esc(t.title)}<br><small>${df(t.date)} ${tf(t.time||"")} · ${tr("видалено")} ${p(d.getDate())}.${p(d.getMonth()+1)} ${p(d.getHours())}:${p(d.getMinutes())} · ${tr("залишилось")} ${left} ${tr("дн")}${t.cp==="c"?" · 🏢 "+esc((calById(t.cal)||{}).name||""):" · 👤"}</small></span>${ro?"":`<button data-rs="${t.id}">↩ Відновити</button><button data-px="${t.id}" title="Видалити назавжди">✕</button>`}</div>`}).join("")
    ||`<p style="color:#8a949c">${tr("Кошик порожній")}</p>`}
  else if(pg==="news"){const a=newsList();ti=tr("Що нового")+" ("+a.length+")";pref("newsSeen",String(Date.now()));
-  h=a.map(t=>`<div class="t tr ${t.prio}" ${t.del?"":`data-e="${t.id}"`}><span><b>${esc(nick(t.eb))}</b> · ${VERB[t.ev]||VERB.edit} «${esc(t.title)}»<br><small>🏢 ${esc((calById(t.cal)||{}).name||"")} · ${ago(t.et)}</small></span></div>`).join("")
+  h=a.map(t=>`<div class="t tr ${prDef(t)?"cp":t.prio}"${prDef(t)?` style="${prCss(t,true)}"`:""} ${t.del?"":`data-e="${t.id}"`}><span><b>${esc(nick(t.eb))}</b> · ${VERB[t.ev]||VERB.edit} «${esc(t.title)}»<br><small>🏢 ${esc((calById(t.cal)||{}).name||"")} · ${ago(t.et)}</small></span></div>`).join("")
    ||`<p style="color:#8a949c">${tr("За останні 7 днів змін від інших учасників немає")}</p>`}
  else{const a=srt(all);ti=tr("Результати пошуку")+" ("+a.length+")";h=lst(a.slice(0,300),{date:1,cal:1})||`<p style="color:#8a949c">${tr("Нічого не знайдено")}</p>`}
  $("pad").hidden=pg==="trash"||pg==="news";$("pgt").textContent=ti;$("pgb").innerHTML=h}
@@ -540,7 +559,7 @@ function useTpl(id){const x=tpls.find(t=>t.id===id);if(!x)return;
  const now=new Date(),td=iso(now);
  let date=page==="cal"?sel:td;if(date===td&&x.time&&x.time<=p(now.getHours())+":"+p(now.getMinutes()))date=iso(new Date(Date.now()+864e5));
  document.body.classList.remove("sbo");
- openDlg(null,{title:x.title||x.name,date,time:x.time||"",rep:x.rep||"",prio:x.prio||"normal",desc:x.desc||"",pre:x.pre||[],tags:x.tags||[],sub:(x.sub||[]).map(z=>({t:z.t,d:false}))}) // шаблон відкриває редактор нової задачі
+ openDlg(null,{title:x.title||x.name,date,time:x.time||"",rep:x.rep||"",prio:x.prio||"normal",pn:x.pn,pc:x.pc,pb:x.pb,desc:x.desc||"",pre:x.pre||[],tags:x.tags||[],sub:(x.sub||[]).map(z=>({t:z.t,d:false}))}) // шаблон відкриває редактор нової задачі
 }
 $("cal").onclick=e=>{const k=e.target.dataset.d;if(k){sel=k;render()}};
 const shift=n=>{cur=new Date(cur.getFullYear(),cur.getMonth()+n,1);render()};
@@ -596,7 +615,7 @@ $("fR").onchange=$("rcT").onchange=repUi;
 function openDlg(id,tpl){const t0=allT().find(x=>x.id===id),nw=!id;
  tcal=t0?(t0.cp==="c"?t0.cal:"me"):(page==="cal"&&mode==="corp"&&cid&&canCal(cid)?cid:"me");
  editId=id;const t=t0||tpl||{};$("fT").value=t.title||"";$("fD").value=t.date||sel;$("fH").value=t.time||"";$("fH").setCustomValidity("");
- repSet(t.rep||"");$("fU").value=t.until||"";curIc=MKI[t.ic]?t.ic:"";icShow();$("fP").value=t.prio||"normal";$("fN").value=t.desc||"";$("fDel").hidden=!id;
+ repSet(t.rep||"");$("fU").value=t.until||"";curIc=MKI[t.ic]?t.ic:"";icShow();fillFp(t);$("fP").value=t.prio||"normal";$("fN").value=t.desc||"";$("fDel").hidden=!id;
  document.querySelectorAll("#fPre input").forEach(c=>c.checked=(t.pre||[]).includes(+c.value));
  $("fTg").value=tagsOf(t).join(", ");$("tgl").innerHTML=allTags().map(x=>`<option value="${esc(x)}">`).join("");
  subs=(t.sub||[]).map(x=>({t:x.t,d:!!x.d}));renderSubs();$("sbIn").value="";
@@ -612,7 +631,7 @@ function openDlg(id,tpl){const t0=allT().find(x=>x.id===id),nw=!id;
 $("fTpl").onclick=async()=>{const n=await ask(tr("Назва шаблону"),$("fT").value);if(!n||!n.trim())return;
  const tg=[...new Set($("fTg").value.split(",").map(z=>z.trim().slice(0,24)).filter(Boolean))].slice(0,10);
  const pre=tv()?[...document.querySelectorAll("#fPre input:checked")].map(c=>+c.value).sort((a,b)=>a-b):[];
- await W(setDoc(doc(col,"tpl_"+crypto.randomUUID()),{tpl:true,name:n.trim().slice(0,40),title:$("fT").value.trim(),time:tv(),rep:repVal(),prio:$("fP").value,desc:$("fN").value,pre,tags:tg,sub:subs.map(z=>({t:z.t,d:false}))}));
+ await W(setDoc(doc(col,"tpl_"+crypto.randomUUID()),{tpl:true,name:n.trim().slice(0,40),title:$("fT").value.trim(),time:tv(),rep:repVal(),...prFields($("fP").value,false),desc:$("fN").value,pre,tags:tg,sub:subs.map(z=>({t:z.t,d:false}))}));
  toast(tr("Шаблон збережено"))};
 $("fX").onclick=()=>$("dlg").close();
 $("fDel").onclick=async()=>{if(await yes(tr("Видалити задачу? Вона буде в кошику 30 днів."))){W(setDoc(doc(colFor(tcal),editId),{del:Date.now(),ev:"del"},{merge:true}));$("dlg").close();toast(tr("Переміщено в кошик"))}};
@@ -627,14 +646,15 @@ $("f").onsubmit=()=>{if(!editId&&!$("fCw").hidden)tcal=$("fC").value;
  const pre=$("fH").value?[...document.querySelectorAll("#fPre input:checked")].map(c=>+c.value).sort((a,b)=>a-b):[];
  const nd=old?(old.done&&when<=fmt(new Date())):false;
  const tg=[...new Set($("fTg").value.split(",").map(z=>z.trim().slice(0,24)).filter(Boolean))].slice(0,10);
- const t={title:$("fT").value.trim(),date:$("fD").value,time:$("fH").value,rep:repVal(),until:repVal()?$("fU").value:"",ic:curIc,prio:$("fP").value,desc:$("fN").value,done:nd,series:old?.series||id,pre,tags:tg,sub:subs.map(z=>({t:z.t,d:!!z.d})),ak:Date.now(),ev:old?"edit":"add"};
+ const pv=$("fP").value,pf=(old&&pv===old.prio&&prDef(old)&&!cpList().some(x=>x.id===pv))?{}:prFields(pv,true);
+ const t={title:$("fT").value.trim(),date:$("fD").value,time:$("fH").value,rep:repVal(),until:repVal()?$("fU").value:"",ic:curIc,...pf,desc:$("fN").value,done:nd,series:old?.series||id,pre,tags:tg,sub:subs.map(z=>({t:z.t,d:!!z.d})),ak:Date.now(),ev:old?"edit":"add"};
  if(tcal!=="me")t.asg=$("fA").value;
  if(old){t.sn=deleteField();t.ot=deleteField();t.od=deleteField();if(old.done&&!nd)t.dby=deleteField()} // ручна зміна = нова точка відліку
  W(setDoc(doc(colFor(tcal),id),t,{merge:true}));sel=t.date;cur=dt(t.date)};
 function setDone(t,done){if(roV(t))return;const u={done,ev:done?"done":"edit"};if(t.cp==="c")u.dby=done?(auth.currentUser.email||""):deleteField();
  W(setDoc(doc(colOf(t),t.id),u,{merge:true}));
  if(done&&!t.done&&t.rep){const nd=nextDate(t.od||t.date,t.rep,iso(new Date())),id=t.series+"_"+nd; // однаковий id на всіх пристроях — дубліката не буде
-  if(!(t.until&&nd>t.until)&&!(t.cp==="c"?tasksCorp:tasksMe).some(x=>x.id===id))W(setDoc(doc(colOf(t),id),{title:t.title,date:nd,time:t.ot||t.time||"",rep:t.rep,until:t.until||"",ic:t.ic||"",prio:t.prio,desc:t.desc||"",done:false,series:t.series,pre:t.pre||[],tags:t.tags||[],sub:(t.sub||[]).map(z=>({t:z.t,d:false})),asg:t.asg||"",ak:Date.now(),ev:"rep"}))}}
+  if(!(t.until&&nd>t.until)&&!(t.cp==="c"?tasksCorp:tasksMe).some(x=>x.id===id))W(setDoc(doc(colOf(t),id),{title:t.title,date:nd,time:t.ot||t.time||"",rep:t.rep,until:t.until||"",ic:t.ic||"",prio:t.prio,...(t.pc?{pn:t.pn||"",pc:t.pc,pb:t.pb||"normal"}:{}),desc:t.desc||"",done:false,series:t.series,pre:t.pre||[],tags:t.tags||[],sub:(t.sub||[]).map(z=>({t:z.t,d:false})),asg:t.asg||"",ak:Date.now(),ev:"rep"}))}}
 
 /* ---- нагадування: стан спільний для всіх пристроїв ---- */
 let seen=new Set(),ringing=false,primed=false;/* ---- сигнали: вбудована сирена, синтезовані та власний файл ---- */
@@ -652,7 +672,7 @@ function soundSrcOf(k){if(k==="custom"){const c=pref("sndData");if(c)return c}
  if(SYN[k])return synCache[k]||(synCache[k]=wavUrl(SYN[k]));return SND_DATA}
 const soundSrc=()=>soundSrcOf(pref("snd")||"alarm");
 const sndP=()=>{try{return JSON.parse(pref("sndP")||"{}")}catch(e){return{}}};
-const PRK={low:0,normal:1,high:2},topPrio=act=>act.reduce((a,x)=>(PRK[x.t.prio||"normal"]>PRK[a]?(x.t.prio||"normal"):a),"low");
+const PRK={low:0,normal:1,high:2},topPrio=act=>act.reduce((a,x)=>(PRK[prBase(x.t)]>PRK[a]?prBase(x.t):a),"low");
 let curSndKey=null;
 const snd=new Audio(soundSrc());snd.loop=true;
 const pushSound=()=>{if(window.Android){try{Android.setSound(soundSrc());if(Android.setSoundP){const sp=sndP();for(const k of ["low","normal","high"])Android.setSoundP(k,sp[k]?soundSrcOf(sp[k]):"")}}catch(e){}}};
@@ -841,7 +861,7 @@ function buildPrint(){const per=$("prP").value,base=dt($("prD").value||iso(new D
  let a=allT().filter(t=>(sd||!t.done)&&(cs==="all"||(cs==="me"?t.cp!=="c":t.cal===cs)));
  let from,to;if(per==="week"){from=mondayOf(base);to=new Date(from.getFullYear(),from.getMonth(),from.getDate()+6,12)}else{from=new Date(base.getFullYear(),base.getMonth(),1,12);to=new Date(base.getFullYear(),base.getMonth()+1,0,12)}
  const by={};for(const t of srt(a))(by[t.date]=by[t.date]||[]).push(t);
- const cell=d=>{const k=iso(d),L=(by[k]||[]).map(t=>`<div class="i ${t.prio}${t.done?" dn":""}">${t.done?"✓ ":""}${t.time?tf(t.time)+" ":""}${esc(t.title)}${cs==="all"&&t.cp==="c"?` <i>(${esc((calById(t.cal)||{}).name||"")})</i>`:""}</div>`).join("");return `<td class="${per}"><b>${d.getDate()}</b>${L}</td>`};
+ const cell=d=>{const k=iso(d),L=(by[k]||[]).map(t=>`<div class="i ${prDef(t)?"":t.prio}${t.done?" dn":""}"${prDef(t)?` style="border-color:${prDef(t).c}"`:""}>${t.done?"✓ ":""}${t.time?tf(t.time)+" ":""}${esc(t.title)}${cs==="all"&&t.cp==="c"?` <i>(${esc((calById(t.cal)||{}).name||"")})</i>`:""}</div>`).join("");return `<td class="${per}"><b>${d.getDate()}</b>${L}</td>`};
  let rows="";const start=per==="week"?from:new Date(from.getFullYear(),from.getMonth(),from.getDate()-((from.getDay()+6)%7),12);
  for(let d=new Date(start);d<=to;){let r="";for(let i=0;i<7;i++){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i,12);r+=(x<from||x>to)?"<td class='o'></td>":cell(x)}rows+=`<tr>${r}</tr>`;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+7,12)}
  const title=per==="week"?df(iso(from))+" – "+df(iso(to)):MON[from.getMonth()]+" "+from.getFullYear();
@@ -915,7 +935,14 @@ function dnApply(){const q=qget(),m=$("dnM").value,now=new Date();$("dnC").hidde
 $("dnM").onchange=dnApply;$("dnA").onchange=$("dnB").onchange=dnApply;
 /* ---- налаштування: розділи ---- */
 const SPT={look:"🎨 Вигляд",cal:"📅 Календар",nav:"☰ Бічна панель",rem:"🔔 Нагадування",snd:"🔊 Сигнали",quiet:"🌙 Тихі години",and:"📱 Android",data:"💾 Резервна копія",print:"🖨 Друк / PDF",acct:"👤 Акаунт"};
-function showSet(n){if(n==="print")fillPrint();$("sTiles").hidden=!!n;document.querySelectorAll("#sdlg .sp").forEach(x=>x.hidden=x.dataset.sp!==n);$("sBack").hidden=!n;$("sTitle").textContent=n?tr(SPT[n]):tr("Налаштування");$("sdlg").scrollTop=0}
+function cpShow(){const L=cpList();$("cpL").innerHTML=L.map(x=>`<div class="row" data-cp="${esc(x.id)}" style="align-items:center"><input type="color" value="${esc(x.c)}" style="width:44px;flex:none"><input data-f="n" value="${esc(x.n||"")}" maxlength="24" style="flex:1;min-width:90px"><select data-f="b" style="width:auto"><option value="low" ${x.b==="low"?"selected":""}>як низький<option value="normal" ${(x.b||"normal")==="normal"?"selected":""}>як звичайний<option value="high" ${x.b==="high"?"selected":""}>як високий</select><button type="button" data-x="1">✕</button></div>`).join("")}
+function cpSave(L){pref("cprio",JSON.stringify(L));render()}
+$("cpAdd").onclick=()=>{const L=cpList();if(L.length>=8){toast(tr("Максимум 8 власних пріоритетів"));return}
+ L.push({id:"x"+[...crypto.getRandomValues(new Uint8Array(5))].map(b=>"abcdefghijklmnopqrstuvwxyz0123456789"[b%36]).join(""),n:"Новий",c:"#8e6bd8",b:"normal"});cpSave(L);cpShow()};
+$("cpL").oninput=e=>{const r=e.target.closest("[data-cp]");if(!r)return;const L=cpList(),x=L.find(z=>z.id===r.dataset.cp);if(!x)return;
+ if(e.target.type==="color")x.c=e.target.value;else if(e.target.dataset.f==="n")x.n=e.target.value.slice(0,24);else if(e.target.dataset.f==="b")x.b=e.target.value;cpSave(L)};
+$("cpL").onclick=async e=>{if(!e.target.dataset.x)return;const r=e.target.closest("[data-cp]");if(r&&await yes(tr("Видалити пріоритет? Уже створені задачі збережуть його назву й колір."))){cpSave(cpList().filter(z=>z.id!==r.dataset.cp));cpShow()}};
+function showSet(n){if(n==="look")cpShow();if(n==="print")fillPrint();$("sTiles").hidden=!!n;document.querySelectorAll("#sdlg .sp").forEach(x=>x.hidden=x.dataset.sp!==n);$("sBack").hidden=!n;$("sTitle").textContent=n?tr(SPT[n]):tr("Налаштування");$("sdlg").scrollTop=0}
 $("sTiles").onclick=e=>{const b=e.target.closest("[data-sp]");if(b)showSet(b.dataset.sp)};$("sBack").onclick=()=>showSet("");
 /* кольори пріоритетів */
 const DEFC={low:"#ffe45c",normal:"#ffa94d",high:"#ff5a5a",ok:"#7fdc5a"},CBC={low:"#56b4e9",normal:"#f0e442",high:"#d55e00",ok:"#009e73"};
