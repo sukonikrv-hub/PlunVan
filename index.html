@@ -15,6 +15,7 @@ main{display:grid;grid-template-columns:3fr 2fr;gap:12px;padding:12px;max-width:
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .wd{text-align:center;font-style:italic;color:#5b6770;font-size:13px;padding:4px}
 .d{aspect-ratio:1.15;border:0;border-radius:0;font-size:16px;padding:0}
+#tip{position:fixed;z-index:10000;max-width:320px;background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;box-shadow:0 4px 14px #0004;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.4;pointer-events:none}#tip b{display:block;margin-bottom:3px}
 .dropt{outline:3px dashed #2c6eaa!important;outline-offset:-3px}.dragg{position:fixed;z-index:9999;pointer-events:none;opacity:.85;max-width:260px;padding:8px 12px;border-radius:8px;background:var(--card);border:1px solid var(--bd);box-shadow:0 4px 14px #0004;font-size:14px}body.dragging{user-select:none;-webkit-user-select:none}
 .d{position:relative}.d .mk{position:absolute;right:3px;bottom:3px;display:flex;justify-content:flex-end;gap:2px;pointer-events:none}.d{container-type:inline-size}.mk svg{width:clamp(11px,23cqw,44px);height:clamp(11px,23cqw,44px)}.mk svg,.mkb svg,.mk2 svg{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .mkrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}.mkb{border:1px solid var(--bd);border-radius:8px;padding:5px;background:var(--card);color:var(--tx);line-height:0}.mkb{display:inline-block}.mkb svg{width:24px;height:24px}
@@ -145,6 +146,7 @@ input[type=color]{width:56px;height:34px;padding:2px;flex:none}.pcr{display:flex
  <div id="fAw" hidden><label>Виконавець</label><select id="fA"></select></div>
  <label>Опис</label><textarea id="fN" rows="3"></textarea>
  <div id="cmBox" hidden><label>Коментарі</label><div id="cmList" style="font-size:13px"></div><div class="row"><input id="cmIn" placeholder="Коментар…" style="flex:1"><button type="button" id="cmAdd">Додати</button></div></div>
+ <div id="fMvw" hidden><label>Перенести або копіювати в календар</label><div class="row"><select id="fMv" style="flex:1"></select><button type="button" id="fCp">Копіювати</button><button type="button" id="fMo">Перенести</button></div></div>
  <div class="row"><button class="pri" id="fS" value="s">Зберегти</button><button type="button" id="fX">Скасувати</button><button type="button" id="fTpl">💾 Як шаблон</button><button type="button" id="fDel" style="margin-left:auto">Видалити</button></div>
 </form></dialog>
 <dialog id="sdlg" class="wide"><form method="dialog">
@@ -350,7 +352,7 @@ $("bfp").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").textCon
  try{await sendPasswordResetEmail(auth,e);$("lerr").textContent="";alert(tr("Лист для скидання пароля надіслано на")+" "+e)}catch(x){$("lerr").textContent=tr("Помилка")+": "+(x.code||x.message)}};
 const pushAlarms=()=>{if(!window.Android)return;try{const now=Date.now(),L=[];
  for(const t of allT()){if(t.done||!mine(t))continue;if(!t.time&&t.date<iso(new Date()))continue;const due=ts(t);if(isNaN(due))continue;const ti=(t.cp==="c"?"🏢 ":"")+t.title;
-  for(const m of [0,...(t.pre||[])]){const w=due-m*6e4;if(w>now&&(m===0||w>(t.ak||0)))L.push(m?{t:tr("Через")+" "+lbl(m)+": "+ti,w,p:1}:Object.assign({t:ti,w,pr:t.prio||"normal"},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id,r:t.rep?1:0,ot:t.ot||t.time,od:t.od||t.date}:{}))}}
+  for(const m of [0,...(t.pre||[])]){const w=due-m*6e4;if(w>now&&(m===0||w>(t.ak||0)))L.push(m?Object.assign({t:tr("Через")+" "+lbl(m)+": "+ti,w,p:1},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id}:{}):Object.assign({t:ti,w,pr:t.prio||"normal"},(colOf(t)||{}).path?{i:colOf(t).path+"/"+t.id,r:t.rep?1:0,ot:t.ot||t.time,od:t.od||t.date}:{}))}}
  Android.setAlarms(JSON.stringify(L.sort((a,b)=>a.w-b.w).slice(0,60)))}catch(e){}};
 const sync=()=>{startApply();tasks=tasksFor(mode);render();tick();ui();fillQc();pushAlarms();if($("dlg").open)renderCm()};
 const allT=()=>tasksMe.concat(tasksCorp),colOf=t=>t.cp==="c"?(calById(t.cal)||{}).col:col,curCol=()=>mode==="corp"?ccol:col;
@@ -369,7 +371,7 @@ async function loadInv(){const c0=cid;if(!c0||!$("ivl"))return;
  try{const s=await getDocs(collection(db,"calendars",c0,"invites"));if(c0!==cid||!$("ivl"))return;const now=Date.now();
   $("ivl").innerHTML=s.docs.map(d=>({id:d.id,...d.data()})).sort((x,y)=>y.exp-x.exp).map(v=>{const dead=v.exp<=now||(v.max&&v.used>=v.max),u=location.origin+location.pathname+"?join="+c0+"&t="+v.id;
    return `<div class="row" style="align-items:center;border-top:1px solid var(--bd);padding:6px 0;${dead?"opacity:.55":""}"><span style="flex:1;font-size:13px">${dead?"⛔ ":"🔗 "}${tr("до")} ${fmtDT(v.exp)} · ${v.used||0}/${v.max||"∞"}</span>${dead?"":`<button type="button" data-ivc="${esc(u)}">${tr("Скопіювати")}</button>`}<button type="button" data-ivx="${esc(v.id)}">${dead?tr("Видалити"):tr("Скасувати")}</button></div>`}).join("")||`<small style="color:#8a949c">${tr("Активних запрошень немає")}</small>`;applyLang()}catch(e){}}
-const LOGV={inv:"🔗 створено запрошення",ivx:"🚫 скасовано запрошення",join:"👋 приєднався до календаря",rm:"➖ вилучено учасника",role:"🔑 змінено роль"};
+const LOGV={inv:"🔗 створено запрошення",ivx:"🚫 скасовано запрошення",join:"👋 приєднався до календаря",rm:"➖ вилучено учасника",role:"🔑 змінено роль",mv:"➡ перенесено в інший календар"};
 async function showLog(){const el=$("mlogb"),c0=cid;if(!el)return;el.textContent="…";
  try{getDocs(query(collection(db,"calendars",c0,"log"),where("ts","<",Date.now()-365*864e5),limit(100))).then(s=>s.docs.forEach(d=>deleteDoc(d.ref))).catch(()=>{});
   const s=await getDocs(query(collection(db,"calendars",c0,"log"),orderBy("ts","desc"),limit(300)));if(c0!==cid||!$("mlogb"))return;
@@ -458,7 +460,7 @@ function item(t,o){o=o||{};
  const ro=roV(t),bt=ro?"":`<button data-c="${t.id}">${t.done?"↩":"✓"}</button>`,
   sl=(t.sub||[]).length?'<div class="sbs">'+t.sub.map((z,i)=>`<label class="${z.d?"dn":""}"><input type="checkbox" data-sb="${t.id}:${i}" ${z.d?"checked":""} ${ro?"disabled":""}> ${esc(z.t)}</label>`).join("")+"</div>":"";
  return `<div class="tw"><div class="t ${t.done?"ok":t.prio}" data-e="${t.id}">${bt}
-  <span>${t.done?"✓ ":""}${t.rep?"🔁 ":""}${MKI[t.ic]?`<span class="mk2">${mkSvg(t.ic)}</span> `:""}${esc(t.title)}${tg?" "+tg:""}<br><small>${o.date?df(t.date)+" ":""}${t.time?tf(t.time):tr("без часу")} · ${tr(PL[t.prio]||"")}${o.cal?(t.cp==="c"?" · 🏢 "+esc((calById(t.cal)||{}).name||""):" · 👤"):""}${t.sn&&!t.done?" · "+tr("⏰ відкладено"):""}${t.pre&&t.pre.length?" · 🔔"+t.pre.length:""}${asgTxt(t)}${sb}${t.cm&&t.cm.length?" · 💬"+t.cm.length:""}${t.done&&t.dby?" · ✓ "+esc(t.dby):""}</small></span></div>${sl}</div>`}
+  <span>${t.done?"✓ ":""}${t.rep?"🔁 ":""}${MKI[t.ic]?`<span class="mk2">${mkSvg(t.ic)}</span> `:""}${esc(t.title)}${tg?" "+tg:""}<br><small>${o.date?df(t.date)+" ":""}${t.time?tf(t.time):tr("без часу")} · ${tr(PL[t.prio]||"")}${o.cal?(t.cp==="c"?" · 🏢 "+esc((calById(t.cal)||{}).name||""):" · 👤"):""}${t.sn&&!t.done?" · "+tr("⏰ відкладено"):""}${t.pre&&t.pre.length?" · 🔔"+t.pre.length:""}${(t.desc||"").trim()?" · 📝":""}${asgTxt(t)}${sb}${t.cm&&t.cm.length?" · 💬"+t.cm.length:""}${t.done&&t.dby?" · ✓ "+esc(t.dby):""}</small></span></div>${sl}</div>`}
 const dayCls=k=>{const a=tasks.filter(t=>t.date===k&&pass(t,mode==="all"));if(!a.length)return"e";const o=a.filter(t=>!t.done);if(!o.length)return"ok";
  return["high","normal","low"].find(x=>o.some(t=>t.prio===x))||"normal"};
 function render(){const y=cur.getFullYear(),m=cur.getMonth(),off=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),td=iso(new Date());
@@ -569,6 +571,15 @@ $("sbAdd").onclick=addSub;$("sbIn").onkeydown=e=>{if(e.key==="Enter"){e.preventD
 $("sbL").onchange=e=>{const i=e.target.dataset.si;if(i!==undefined){subs[i].d=e.target.checked;renderSubs()}};
 $("sbL").onclick=e=>{const i=e.target.dataset.sx;if(i!==undefined){subs.splice(+i,1);renderSubs()}};
 $("fC").onchange=()=>{tcal=$("fC").value;fillAsg("")};
+async function xferTask(move){const old=allT().find(t=>t.id===editId),to=$("fMv").value;if(!old||!to||roV(old)||!canCal(to))return;
+ const from=old.cp==="c"?old.cal:"me";if(to===from)return;
+ const {id,cp,cal,eb,et,ev,ut,del,dby,cm,asg,series,...r}=old,nid=crypto.randomUUID(),tc=calById(to);
+ const nt={...r,series:nid,ak:Date.now(),ev:"add",asg:(to!=="me"&&asg&&tc&&(tc.members||[]).includes(asg))?asg:""};
+ try{await setDoc(doc(colFor(to),nid),nt);
+  if(move){if(from!=="me")clog(from,"mv",old.title);await deleteDoc(doc(colOf(old),old.id))}
+  $("dlg").close();toast(tr(move?"Задачу перенесено":"Задачу скопійовано"));sel=old.date;cur=dt(old.date)}
+ catch(x){alert(tr("Помилка")+": "+(x.code||x.message))}}
+$("fCp").onclick=()=>xferTask(false);$("fMo").onclick=()=>xferTask(true);
 function repVal(){const v=$("fR").value;if(v!=="custom")return v;const t=$("rcT").value;
  if(t==="ev")return "every:"+Math.min(365,Math.max(1,parseInt($("rcN").value)||1))+":"+$("rcU").value;
  if(t==="dow"){const a=[...document.querySelectorAll("#rcD input:checked")].map(c=>c.value);return a.length?"dow:"+a.join(","):"weekly"}
@@ -591,6 +602,8 @@ function openDlg(id,tpl){const t0=allT().find(x=>x.id===id),nw=!id;
  subs=(t.sub||[]).map(x=>({t:x.t,d:!!x.d}));renderSubs();$("sbIn").value="";
  $("fC").innerHTML='<option value="me">Особистий</option>'+cals.filter(c=>canCal(c.id)).map(c=>`<option value="${esc(c.id)}">🏢 ${esc(c.name)}</option>`).join("");$("fC").value=tcal;$("fCw").hidden=!(nw&&cals.length);
  fillAsg(t.asg);
+ {const cur0=t0?(t0.cp==="c"?t0.cal:"me"):"me";const opts=[["me","Особистий"]].concat(cals.filter(c=>canCal(c.id)).map(c=>[c.id,"🏢 "+c.name])).filter(o=>o[0]!==cur0);
+  $("fMv").innerHTML=opts.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("");$("fMvw").hidden=!(t0&&opts.length)}
  $("cmBox").hidden=!(tcal!=="me"&&id);renderCm();
  const ro=!!t0&&roV(t0); // роль «лише перегляд»: поля заблоковані
  document.querySelectorAll("#f input,#f select,#f textarea,#f button").forEach(x=>{if(x.id!=="fX")x.disabled=ro});
@@ -761,6 +774,18 @@ $("bkF").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f||!col)re
   for(const x of (j.personal||[]).slice(0,2000)){if(!x||typeof x.title!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(x.date||""))continue;const {id,cp,...d}=x;
    W(setDoc(doc(col,/^[A-Za-z0-9_-]{1,100}$/.test(id||"")?id:crypto.randomUUID()),d,{merge:true}));n++}
   alert(tr("Імпортовано задач")+": "+n)}catch(x){alert(tr("Не вдалося прочитати файл"))}};r.readAsText(f)};
+/* ---- підказка з описом при наведенні ---- */
+(()=>{if(matchMedia("(hover:none)").matches)return;const tip=document.createElement("div");tip.id="tip";tip.hidden=true;document.body.appendChild(tip);
+ let tm=null,cur=null,last={clientX:0,clientY:0};
+ const hide=()=>{clearTimeout(tm);tip.hidden=true;cur=null};
+ const move=e=>{const w=tip.offsetWidth,h=tip.offsetHeight;let x=e.clientX+14,y=e.clientY+16;if(x+w>innerWidth-8)x=Math.max(8,innerWidth-w-8);if(y+h>innerHeight-8)y=Math.max(8,e.clientY-h-12);tip.style.left=x+"px";tip.style.top=y+"px"};
+ for(const id of ["list","pgb"]){const el=$(id);
+  el.addEventListener("mouseover",e=>{if(document.body.classList.contains("dragging"))return;const r=e.target.closest(".t[data-e]");if(!r||r===cur)return;hide();
+   const t=allT().find(x=>x.id===r.dataset.e);if(!t||!(t.desc||"").trim())return;cur=r;
+   tm=setTimeout(()=>{const d=t.desc.trim();tip.innerHTML=`<b>${esc(t.title)}</b>${esc(d.length>700?d.slice(0,700)+"…":d)}`;tip.hidden=false;move(last)},200)});
+  el.addEventListener("mousemove",e=>{last=e;if(!tip.hidden)move(e)});
+  el.addEventListener("mouseout",e=>{const r=e.target.closest(".t[data-e]");if(r&&!r.contains(e.relatedTarget))hide()})}
+ document.addEventListener("pointerdown",hide);document.addEventListener("scroll",hide,true)})();
 /* ---- перетягування задач на інший день ---- */
 (()=>{let st=null,gh=null,hot=null,blockClick=false;
  const tgt=(x,y)=>{const el=document.elementFromPoint(x,y);return el&&el.closest("[data-d],[data-wd]")};
